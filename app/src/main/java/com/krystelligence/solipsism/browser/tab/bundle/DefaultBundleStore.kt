@@ -36,6 +36,11 @@ class DefaultBundleStore @Inject constructor(
         val outState = Bundle(ClassLoader.getSystemClassLoader())
 
         tabs.withIndex().forEach { (index, tab) ->
+            // Never persist blank tabs (e.g. interrupted loads or crashed state). They restore
+            // as permanently blank with no URL to recover from.
+            if (tab.url.isBlank()) {
+                return@forEach
+            }
             if (!tab.url.isSpecialUrl()) {
                 outState.putBundle(BUNDLE_KEY + index, tab.freeze())
                 outState.putString(TAB_TITLE_KEY + index, tab.title)

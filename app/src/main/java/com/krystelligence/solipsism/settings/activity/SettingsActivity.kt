@@ -42,9 +42,14 @@ class SettingsActivity : ThemableSettingsActivity(),
         // or theme recreation. Replacing it unconditionally would always send the user back to
         // the root settings screen.
         if (savedInstanceState == null) {
+            val startFragment = intent.getStringExtra(EXTRA_INITIAL_FRAGMENT)?.let { name ->
+                runCatching {
+                    supportFragmentManager.fragmentFactory.instantiate(classLoader, name)
+                }.getOrNull()
+            } ?: RootSettingsFragment()
             supportFragmentManager
                 .beginTransaction()
-                .replace(R.id.root, RootSettingsFragment())
+                .replace(R.id.root, startFragment)
                 .commit()
         }
 
@@ -53,7 +58,8 @@ class SettingsActivity : ThemableSettingsActivity(),
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
                     if (supportFragmentManager.popBackStackImmediate()) return
-                    returnToBrowser()
+                    if (intent.getBooleanExtra(EXTRA_RETURN_TO_CALLER, false)) finish()
+                    else returnToBrowser()
                 }
             }
         )
@@ -107,5 +113,13 @@ class SettingsActivity : ThemableSettingsActivity(),
         )
         startActivity(SettingsNavigation.createBrowserIntent(this, incognito))
         finish()
+    }
+
+    companion object {
+        /** Fully-qualified fragment class name to show instead of the root settings page. */
+        const val EXTRA_INITIAL_FRAGMENT = "settings_initial_fragment"
+
+        /** When true, back navigation finishes instead of returning to the browser. */
+        const val EXTRA_RETURN_TO_CALLER = "settings_return_to_caller"
     }
 }

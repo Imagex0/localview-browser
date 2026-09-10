@@ -304,6 +304,7 @@ class TabAdapter @AssistedInject constructor(
         latentInitializer = null
         restoredTitle = null
         restoredFavicon = null
+        lastRequestedUrl = url
         setContentKind(TabContentKind.ENGINE)
         webView.loadUrl(url, requestHeaders)
     }
@@ -313,33 +314,36 @@ class TabAdapter @AssistedInject constructor(
             restoredTitle = null
             restoredFavicon = null
         }
+        if (tabInitializer is UrlInitializer) {
+            lastRequestedUrl = tabInitializer.url
+        }
         latentInitializer = null
         setContentKind(tabInitializer.contentKind)
         if (tabInitializer.contentKind == TabContentKind.NATIVE_HOMEPAGE) return
         tabInitializer.initialize(webView, requestHeaders)
     }
 
+    // Restored to 6.1.7 behavior: back/forward navigation is unconditional. Gating on
+    // content kind could leave history unreachable, showing a blank tab on back gestures.
     override fun goBack() {
-        if (contentKind == TabContentKind.ENGINE) webView.goBack()
+        webView.goBack()
+        // History navigation repaints lazily; force a present after load settles so the
+        // tab does not sit blank until the next touch.
+        webView.postDelayed({ webView.invalidate() }, HISTORY_REPAINT_DELAY_MS)
     }
 
-    override fun canGoBack(): Boolean = contentKind == TabContentKind.ENGINE && webView.canGoBack()
+    override fun canGoBack(): Boolean = webView.canGoBack()
 
-    override fun canGoBackChanges(): Observable<Boolean> = Observable.merge(
-        tabWebViewClient.goBackObservable.filter { contentKind == TabContentKind.ENGINE },
-        contentKindSubject.map { kind -> kind == TabContentKind.ENGINE && webView.canGoBack() },
-    )
+    override fun canGoBackChanges(): Observable<Boolean> = tabWebViewClient.goBackObservable.hide()
 
     override fun goForward() {
-        if (contentKind == TabContentKind.ENGINE) webView.goForward()
+        webView.goForward()
+        webView.postDelayed({ webView.invalidate() }, HISTORY_REPAINT_DELAY_MS)
     }
 
-    override fun canGoForward(): Boolean = contentKind == TabContentKind.ENGINE && webView.canGoForward()
+    override fun canGoForward(): Boolean = webView.canGoForward()
 
-    override fun canGoForwardChanges(): Observable<Boolean> = Observable.merge(
-        tabWebViewClient.goForwardObservable.filter { contentKind == TabContentKind.ENGINE },
-        contentKindSubject.map { kind -> kind == TabContentKind.ENGINE && webView.canGoForward() },
-    )
+    override fun canGoForwardChanges(): Observable<Boolean> = tabWebViewClient.goForwardObservable.hide()
 
     override fun toggleDesktopAgent() {
         if (!toggleDesktop) {
@@ -665,6 +669,28 @@ class TabAdapter @AssistedInject constructor(
     override fun closeWindowRequests(): Observable<Unit> =
         tabWebChromeClient.closeWindowObservable.hide()
 
+    /** Last URL explicitly requested for this tab, used to rescue stalled loads. */
+    private var lastRequestedUrl: String? = null
+    private var stalledCheckProgress = -1
+
+    private val stalledLoadCheck = Runnable {
+        // If foregrounded but the load never completed and made no progress, the initial
+        // load was dropped (e.g. rapid tab creation) leaving a permanently blank tab.
+        // Reload only when progress froze between checks; active loads are untouched.
+        // Progress 0 reloads only with a known URL (dropped initial load, not empty tab).
+        if (isForeground && engineContentVisible) {
+            val progress = webView.progress
+            val frozen = progress == stalledCheckProgress
+            stalledCheckProgress = progress
+            if (frozen && progress in 0..99) {
+                val rescueUrl = lastRequestedUrl?.takeIf(String::isNotBlank)
+                if (progress > 0 || rescueUrl != null) {
+                    (rescueUrl ?: webView.url)?.takeIf(String::isNotBlank)?.let(webView::loadUrl)
+                }
+            }
+        }
+    }
+
     override var isForeground: Boolean = false
         set(value) {
             field = value
@@ -676,8 +702,17 @@ class TabAdapter @AssistedInject constructor(
                 webView.settings.offscreenPreRaster = true
                 latentInitializer?.let(::loadFromInitializer)
                 latentInitializer = null
+                // Force recomposite: a detached/reattached WebView often shows blank until
+                // invalidated, even with content loaded. Post to run after attach/layout.
+                webView.post { webView.invalidate() }
+                // Rescue stalled loads: check twice; reload only if progress froze mid-load.
+                stalledCheckProgress = webView.progress
+                webView.removeCallbacks(stalledLoadCheck)
+                webView.postDelayed(stalledLoadCheck, STALLED_LOAD_FIRST_CHECK_MS)
+                webView.postDelayed(stalledLoadCheck, STALLED_LOAD_CONFIRM_MS)
             } else {
                 webView.settings.offscreenPreRaster = false
+                webView.removeCallbacks(stalledLoadCheck)
             }
         }
 
@@ -697,6 +732,7 @@ class TabAdapter @AssistedInject constructor(
     override fun hasFocusChanges(): Observable<Boolean> = focusObservable.hide()
 
     override fun destroy() {
+        webView.removeCallbacks(stalledLoadCheck)
         viewIdGenerator.releaseViewId(id)
         previewModel.prune()
         webView.stopLoading()
@@ -761,6 +797,12 @@ class TabAdapter @AssistedInject constructor(
 
     companion object {
         private const val TAG = "TabAdapter"
+        /** Delay before forcing repaint after history navigation, letting the load settle. */
+        private const val HISTORY_REPAINT_DELAY_MS = 350L
+        /** First stalled-load check after foregrounding a tab. */
+        private const val STALLED_LOAD_FIRST_CHECK_MS = 1500L
+        /** Confirming check; reloads only if progress froze across both checks. */
+        private const val STALLED_LOAD_CONFIRM_MS = 3500L
         private const val BLOB_SCHEME = "blob:"
         private const val BLOB_CHUNK_SIZE = 32 * 1024
         private const val MAX_BLOB_BYTES = 16L * 1024L * 1024L

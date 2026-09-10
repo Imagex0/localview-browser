@@ -18,6 +18,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -36,7 +38,10 @@ import com.krystelligence.solipsism.ThemeApplication
 import com.krystelligence.solipsism.browser.ui.SolipsismRailPosition
 import com.krystelligence.solipsism.browser.DonationPromptPreferences
 import com.krystelligence.solipsism.device.ScreenSize
+import com.krystelligence.solipsism.dialog.BrowserDialog
 import com.krystelligence.solipsism.preference.UserPreferences
+import com.krystelligence.solipsism.settings.activity.SettingsActivity
+import com.krystelligence.solipsism.settings.fragment.AccessibilitySettingsFragment
 import com.krystelligence.solipsism.search.SearchEngineProvider
 import com.krystelligence.solipsism.search.SearchEngineDisplayNames
 import com.krystelligence.solipsism.search.Suggestions
@@ -126,6 +131,19 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
             icon.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
             startAntaresQuickStart()
             true
+        }
+        findViewById<View>(R.id.onboarding_language_button).setOnClickListener {
+            showOnboardingLanguagePicker()
+        }
+        findViewById<View>(R.id.onboarding_accessibility_button).setOnClickListener {
+            startActivity(
+                Intent(this, SettingsActivity::class.java)
+                    .putExtra(
+                        SettingsActivity.EXTRA_INITIAL_FRAGMENT,
+                        AccessibilitySettingsFragment::class.java.name
+                    )
+                    .putExtra(SettingsActivity.EXTRA_RETURN_TO_CALLER, true)
+            )
         }
 
         themeField.setAdapter(
@@ -312,6 +330,30 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
     }
 
     /**
+     * Standalone copy of the General settings language picker so onboarding can switch
+     * locales without leaving the setup flow.
+     */
+    private fun showOnboardingLanguagePicker() {
+        val entries = resources.getStringArray(R.array.language_entries)
+        val values = resources.getStringArray(R.array.language_values)
+        val selectedTag = AppCompatDelegate.getApplicationLocales().toLanguageTags()
+            .takeIf { it.isNotBlank() } ?: "system"
+        val selectedIndex = values.indexOf(selectedTag).takeIf { it >= 0 } ?: 0
+
+        BrowserDialog.showCustomDialog(this) {
+            setTitle(R.string.settings_language)
+            setSingleChoiceItems(entries, selectedIndex) { dialog, which ->
+                val languageTag = values[which]
+                AppCompatDelegate.setApplicationLocales(
+                    if (languageTag == "system") LocaleListCompat.getEmptyLocaleList()
+                    else LocaleListCompat.forLanguageTags(languageTag)
+                )
+                dialog.dismiss()
+            }
+        }
+    }
+
+    /**
      * Hidden one-gesture path for experienced users who already have Antares installed. It resets
      * only choices offered by onboarding, never personal browsing data or privacy preferences.
      */
@@ -320,7 +362,7 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
             openAntaresListing()
             return
         }
-        userPreferences.useTheme = AppTheme.LIGHT
+        userPreferences.useTheme = AppTheme.BLACK
         userPreferences.accentPalette = AccentPalette.TEAL.ordinal
         userPreferences.matchSystemAccent = false
         userPreferences.solipsismRailPosition = SolipsismRailPosition.RIGHT

@@ -479,7 +479,7 @@ private class AntaresInputRouter(
                     }
                 }
                 else -> coordinateBridge?.verifyTap(event.x, event.y)
-                    ?: sessionView.click(event.x, event.y)
+                    ?: forwardTapAsTouch(event)
             }
             velocityTracker?.recycle()
             velocityTracker = null
@@ -590,6 +590,16 @@ private class AntaresInputRouter(
     private fun cancelFling() {
         flingRunning = false
         Choreographer.getInstance().removeFrameCallback(flingFrameCallback)
+    }
+
+    /**
+     * Forwards a tap as a native touch Down+Up sequence so the engine hit-tests and follows
+     * links itself. Synthetic mouse-click emulation does not reliably activate links, leaving
+     * tabs with no history and breaking back navigation.
+     */
+    private fun forwardTapAsTouch(upEvent: MotionEvent) {
+        downEvent?.let(sessionView::relayTouchEvent)
+        sessionView.relayTouchEvent(upEvent)
     }
 
     private fun clear() {

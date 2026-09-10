@@ -27,7 +27,7 @@ class AntaresEnginePackage(private val context: Context) {
                 installed = true,
                 platformSupported = true,
                 trusted = true,
-                versionName = "0.2.2",
+                versionName = "0.2.3",
                 reason = null,
             )
         }

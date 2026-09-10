@@ -235,7 +235,10 @@ class TabsRepository @Inject constructor(
 
     private fun migrationInitializer(tab: TabModel, targetCore: BrowserCore): TabInitializer =
         if (tab.contentKind == TabContentKind.NATIVE_HOMEPAGE ||
-            (targetCore == BrowserCore.WEBVIEW && tab.url == SCHEME_ANTARES_HOMEPAGE)
+            (targetCore == BrowserCore.WEBVIEW && tab.url == SCHEME_ANTARES_HOMEPAGE) ||
+            // Blank tabs (interrupted loads, crashed state) cannot migrate to a visible page;
+            // fall back to homepage rather than a permanently blank tab with no URL.
+            tab.url.isBlank()
         ) {
             homePageInitializer
         } else {

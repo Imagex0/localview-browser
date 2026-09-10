@@ -6,10 +6,12 @@
 package org.servo.servoview
 
 import android.content.Context
+import android.util.Log
 import android.util.Size
 import android.view.KeyEvent
 import android.view.Surface
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 class Servo(
     args: String?,
@@ -31,6 +33,8 @@ class Servo(
     private val jni = JNIServo()
     private val servoCallbacks = Callbacks(client, jni, runCallback)
     private val frameQueued = AtomicBoolean(false)
+    private val enginePanicCount = AtomicInteger(0)
+    private val rendererUnhealthy = AtomicBoolean(false)
 
     private fun runOnEngine(action: () -> Unit) {
         runCallback.inGLThread {
@@ -75,6 +79,7 @@ class Servo(
     }
 
     fun reload() {
+        markRendererRecovering()
         runOnEngine { jni.reload() }
     }
 
@@ -91,6 +96,7 @@ class Servo(
     }
 
     fun loadUri(uri: String) {
+        markRendererRecovering()
         runOnEngine { jni.loadUri(uri) }
     }
 
@@ -193,18 +199,36 @@ class Servo(
         // Choreographer keeps producing vsync callbacks even when a complex page takes longer
         // than one frame to update. Keep at most one frame job queued so touch, keyboard and
         // navigation work cannot be starved behind stale frame requests.
-        if (frameQueued.compareAndSet(false, true)) {
-            runCallback.inGLThread {
-                try {
-                    jni.doFrame(frameTimeNanos)
-                } finally {
-                    frameQueued.set(false)
+        if (rendererUnhealthy.get() || !frameQueued.compareAndSet(false, true)) {
+            return
+        }
+        runCallback.inGLThread {
+            try {
+                jni.doFrame(frameTimeNanos)
+                enginePanicCount.set(0)
+            } catch (panic: RuntimeException) {
+                // A Rust panic surfaces here (e.g. GL OOM mid-frame during core switch).
+                // Never let it kill the host app; stop driving frames and let an explicit
+                // reload/resume attempt recovery.
+                val count = enginePanicCount.incrementAndGet()
+                Log.w(TAG, "Engine frame panicked ($count); halting vsync drive", panic)
+                if (count >= MAX_CONSECUTIVE_FRAME_PANICS) {
+                    rendererUnhealthy.set(true)
+                    Log.w(TAG, "Engine marked unhealthy after repeated frame panics")
                 }
-                if (!servoCallbacks.suspended && jni.needsVsync()) {
-                    runCallback.requestVsync()
-                }
+            } finally {
+                frameQueued.set(false)
+            }
+            if (!rendererUnhealthy.get() && !servoCallbacks.suspended && jni.needsVsync()) {
+                runCallback.requestVsync()
             }
         }
+    }
+
+    /** Allow fresh frames again, e.g. after an explicit reload or resume. */
+    fun markRendererRecovering() {
+        enginePanicCount.set(0)
+        rendererUnhealthy.set(false)
     }
 
     interface Client {
@@ -307,5 +331,10 @@ class Servo(
         override fun onMediaSessionSetPositionState(duration: Float, position: Float, playbackRate: Float) {
             runCallback.inUIThread { client.onMediaSessionSetPositionState(duration, position, playbackRate) }
         }
+    }
+
+    private companion object {
+        private const val TAG = "ServoFrame"
+        private const val MAX_CONSECUTIVE_FRAME_PANICS = 3
     }
 }

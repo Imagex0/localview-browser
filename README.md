@@ -14,23 +14,23 @@
 
 Solipsism Browser is a privacy-focused Android WebView browser built around a rail-first, one-handed interface. Navigation, tabs, search, QR scanning, refresh, bookmarks, and browser tools live in a compact rail on the left or right, leaving the webpage as the main surface.
 
-Latest release: [**Solipsism Browser v8.0.0**](https://github.com/Kenneth-Cho-InfoSec/Solipsism/releases/latest)<br>
+Latest release: [**Solipsism Browser v9.0.0**](https://github.com/Kenneth-Cho-InfoSec/Solipsism/releases/latest)<br>
 Application ID: `com.krystelligence.solipsism`<br>
 Developer: **Kenneth-Cho-InfoSec**
 
 ## Optional Antares browser core
 
-Solipsism 8.0.0 provides a unified browser experience with Android WebView as its stable core and
-**Antares 0.2.2** as an experimental in-house Servo-derived core. The Solipsism source tree contains
-the host integration, protocol, and native JNI support, while Antares is also published as a separate
-signed ARM64 companion package so the engine can be updated and tested independently. Android WebView
+Solipsism 9.0.0 provides a unified browser experience with Android WebView as its stable core and
+**Antares 0.2.3** as an experimental in-house Servo-derived core. The engine ships bundled inside the
+Solipsism APK; a separately installed signed ARM64 companion package is still recognised as a fallback
+so the engine can be updated and tested independently. Android WebView
 remains the stable fallback.
 
 To enable Antares:
 
 1. Install the signed Solipsism APK from the [Solipsism releases](https://github.com/Kenneth-Cho-InfoSec/Solipsism/releases).
-2. Download and install the matching ARM64 **Antares Engine** APK from the [Antares releases](https://github.com/Kenneth-Cho-InfoSec/Antares/releases). Both packages are required when selecting the companion core; Antares cannot be enabled by installing Solipsism alone.
-3. Open Solipsism and choose Antares in the browser-core chooser or Debug Settings. Solipsism verifies the companion package and its signing certificate before binding.
+2. Optional: download and install the matching ARM64 **Antares Engine** APK from the [Antares releases](https://github.com/Kenneth-Cho-InfoSec/Antares/releases) if you prefer the standalone engine.
+3. Open Solipsism and choose Antares in the browser-core chooser or Debug Settings. Solipsism verifies the bundled engine, or the companion package and its signing certificate, before binding.
 4. If Antares is unavailable or a site is incompatible, select Android WebView to return to the stable core.
 
 Antares is experimental. Complex sites, including YouTube and Amazon, may have incomplete

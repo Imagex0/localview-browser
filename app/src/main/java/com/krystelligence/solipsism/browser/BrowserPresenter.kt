@@ -228,18 +228,12 @@ class BrowserPresenter @Inject constructor(
             switchBrowserCore(core)
         }
         currentTab?.onHostResumed()
-        val currentAgentSettings = currentUserAgentSettings()
-        if (currentAgentSettings != appliedUserAgentSettings) {
-            appliedUserAgentSettings = currentAgentSettings
-            model.tabsList.forEach(TabModel::applyUserAgentPreference)
-            currentTab?.reload()
-        }
-        val currentContentBlockingSettings = currentContentBlockingSettings()
-        if (currentContentBlockingSettings != appliedContentBlockingSettings) {
-            appliedContentBlockingSettings = currentContentBlockingSettings
-            model.tabsList.forEach(TabModel::applyContentBlockingPreferences)
-            currentTab?.reload()
-        }
+        // Restored to 6.1.7 behavior: do not reload tabs on resume. Re-applying
+        // preferences with an immediate reload blanked the current page every time
+        // the browser returned from background. Preference changes apply on next
+        // manual reload or new navigation, as they did in 6.1.7.
+        appliedUserAgentSettings = currentUserAgentSettings()
+        appliedContentBlockingSettings = currentContentBlockingSettings()
         val contentTheme = currentContentTheme()
         if (contentTheme != appliedContentTheme) {
             appliedContentTheme = contentTheme

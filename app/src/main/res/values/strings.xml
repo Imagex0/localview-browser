@@ -710,6 +710,8 @@
     <string name="onboarding_finish">Finish setup</string>
     <string name="onboarding_appearance_title">Make it yours</string>
     <string name="onboarding_appearance_summary">Choose how Solipsism looks. You can change these options later.</string>
+    <string name="onboarding_language_button_desc">Change language</string>
+    <string name="onboarding_accessibility_button_desc">Open accessibility settings</string>
     <string name="onboarding_rail_title">Choose your navigation rail</string>
     <string name="onboarding_rail_summary">Place the controls where they are most comfortable to reach.</string>
     <string name="onboarding_rail_left">Left</string>
