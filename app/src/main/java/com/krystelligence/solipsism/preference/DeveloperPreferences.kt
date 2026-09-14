@@ -18,11 +18,6 @@ class DeveloperPreferences @Inject constructor(
 
     var useLeakCanary by preferences.booleanPreference(LEAK_CANARY, false)
 
-    var experimentalRailLayoutsEnabled by preferences.booleanPreference(
-        EXPERIMENTAL_RAIL_LAYOUTS,
-        false
-    )
-
     /**
      * Runs an off-screen WebView beside Antares so debug builds can compare the semantic target
      * under a tap before forwarding it to the experimental engine.
@@ -38,7 +33,6 @@ class DeveloperPreferences @Inject constructor(
 }
 
 private const val LEAK_CANARY = "leakCanary"
-private const val EXPERIMENTAL_RAIL_LAYOUTS = "experimentalRailLayouts"
 private const val ANTARES_COORDINATE_BRIDGE = "antaresCoordinateBridge"
 private const val INITIAL_CHECK_FOR_TOR = "checkForTor"
 // private const val INITIAL_CHECK_FOR_I2P = "checkForI2P"

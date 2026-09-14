@@ -242,10 +242,6 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
             }
             userPreferences.solipsismRailPosition = position
             userPreferences.solipsismRailOnLeft = position != SolipsismRailPosition.RIGHT
-            getSharedPreferences(DEVELOPER_PREFERENCES, MODE_PRIVATE)
-                .edit()
-                .putBoolean(EXPERIMENTAL_RAIL_LAYOUTS, position.isExperimental)
-                .apply()
             currentStep = SetupStep.CORE
             showCoreStep()
         }
@@ -367,10 +363,6 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
         userPreferences.matchSystemAccent = false
         userPreferences.solipsismRailPosition = SolipsismRailPosition.RIGHT
         userPreferences.solipsismRailOnLeft = false
-        getSharedPreferences(DEVELOPER_PREFERENCES, MODE_PRIVATE)
-            .edit()
-            .putBoolean(EXPERIMENTAL_RAIL_LAYOUTS, false)
-            .apply()
         enforceDuckDuckGoForAntares()
         getSharedPreferences(DonationPromptPreferences.FILE_NAME, MODE_PRIVATE)
             .edit()
@@ -550,8 +542,6 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_MANAGE_ONLY = "manage_only"
         private const val USER_PREFERENCES = "settings"
-        private const val DEVELOPER_PREFERENCES = "developer_settings"
-        private const val EXPERIMENTAL_RAIL_LAYOUTS = "experimentalRailLayouts"
         private const val STATE_STEP = "setup_step"
         private const val STATE_CORE = "setup_core"
     }

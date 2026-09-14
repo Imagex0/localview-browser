@@ -35,13 +35,6 @@ class DebugSettingsFragment : AbstractSettingsFragment() {
         )
 
         togglePreference(
-            preference = EXPERIMENTAL_RAIL_LAYOUTS,
-            isChecked = developerPreferences.experimentalRailLayoutsEnabled,
-            onCheckChange = { change ->
-                developerPreferences.experimentalRailLayoutsEnabled = change
-            }
-        )
-        togglePreference(
             preference = ANTARES_COORDINATE_BRIDGE,
             isChecked = developerPreferences.antaresCoordinateBridgeEnabled,
             onCheckChange = { change ->
@@ -74,7 +67,6 @@ class DebugSettingsFragment : AbstractSettingsFragment() {
         }
 
     companion object {
-        private const val EXPERIMENTAL_RAIL_LAYOUTS = "experimental_rail_layouts"
         private const val ANTARES_COORDINATE_BRIDGE = "antares_coordinate_bridge"
         private const val BROWSER_CORE = "browser_core"
         private const val LEAK_CANARY = "leak_canary_enabled"

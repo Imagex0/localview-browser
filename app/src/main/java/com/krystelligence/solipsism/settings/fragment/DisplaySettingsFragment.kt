@@ -15,7 +15,6 @@ import com.krystelligence.solipsism.preference.UserPreferences
 import com.krystelligence.solipsism.audio.AudioPreset
 import com.krystelligence.solipsism.browser.ui.RailUtilityAction
 import com.krystelligence.solipsism.browser.ui.SolipsismRailPosition
-import com.krystelligence.solipsism.preference.DeveloperPreferences
 import com.krystelligence.solipsism.browser.ui.RailMenuStudioActivity
 import com.krystelligence.solipsism.html.homepage.HomepageSource
 import com.krystelligence.solipsism.html.homepage.StaticHomepageSanitizer
@@ -52,7 +51,6 @@ import javax.inject.Inject
 open class DisplaySettingsFragment : AbstractSettingsFragment() {
 
     @Inject internal lateinit var userPreferences: UserPreferences
-    @Inject internal lateinit var developerPreferences: DeveloperPreferences
     private var wallpaperSummaryUpdater: SummaryUpdater? = null
     private val wallpaperPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let(::copyHomepageWallpaper)
@@ -1079,12 +1077,7 @@ open class DisplaySettingsFragment : AbstractSettingsFragment() {
             .show()
     }
 
-    private fun currentRailPosition(): SolipsismRailPosition {
-        val stored = userPreferences.solipsismRailPosition
-        return if (stored.isExperimental && !developerPreferences.experimentalRailLayoutsEnabled) {
-            if (userPreferences.solipsismRailOnLeft) SolipsismRailPosition.LEFT else SolipsismRailPosition.RIGHT
-        } else stored
-    }
+    private fun currentRailPosition(): SolipsismRailPosition = userPreferences.solipsismRailPosition
 
     private fun SolipsismRailPosition.toRailPositionDisplayString(): String = getString(
         when (this) {
