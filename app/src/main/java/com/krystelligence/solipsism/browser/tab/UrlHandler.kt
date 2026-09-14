@@ -2,9 +2,16 @@ package com.krystelligence.solipsism.browser.tab
 
 import com.krystelligence.solipsism.BuildConfig
 import com.krystelligence.solipsism.R
+import com.krystelligence.solipsism.adblock.lists.AddListResult
+import com.krystelligence.solipsism.adblock.lists.FilterListDetector
+import com.krystelligence.solipsism.adblock.lists.FilterListKind
+import com.krystelligence.solipsism.adblock.lists.RemoteFilterListManager
 import com.krystelligence.solipsism.browser.BrowserActivity
 import com.krystelligence.solipsism.browser.di.IncognitoMode
+import com.krystelligence.solipsism.dialog.BrowserDialog
+import com.krystelligence.solipsism.dialog.DialogItem
 import com.krystelligence.solipsism.extensions.snackbar
+import com.krystelligence.solipsism.extensions.toast
 import com.krystelligence.solipsism.log.Logger
 import com.krystelligence.solipsism.utils.IntentUtils
 import com.krystelligence.solipsism.utils.NavigationSecurity
@@ -29,6 +36,7 @@ class UrlHandler @Inject constructor(
     private val activity: Activity,
     private val logger: Logger,
     private val intentUtils: IntentUtils,
+    private val filterListManager: RemoteFilterListManager,
     @IncognitoMode private val incognitoMode: Boolean
 ) {
 
@@ -71,6 +79,11 @@ class UrlHandler @Inject constructor(
             // If this is an about page, immediately load, we don't need to leave the app
             return continueLoadingUrl(view, url, headers)
         }
+        if (FilterListDetector.isCandidate(url)) {
+            // Offer to subscribe to filter-list links instead of rendering them as text.
+            showFilterListOffer(url)
+            return true
+        }
 
         return if (isMailOrIntent(url, view) || intentUtils.startActivityForUrl(view, url)) {
             // If it was a mailto: link, or an intent, or could be launched elsewhere, do that
@@ -79,6 +92,39 @@ class UrlHandler @Inject constructor(
             // If none of the special conditions was met, continue with loading the url
             continueLoadingUrl(view, url, headers)
         }
+    }
+
+    /**
+     * Asks whether a navigated filter-list link should be subscribed to.
+     */
+    private fun showFilterListOffer(url: String) {
+        BrowserDialog.showPositiveNegativeDialog(
+            activity,
+            R.string.filter_list_detected_title,
+            R.string.filter_list_detected_message,
+            messageArguments = arrayOf(url),
+            positiveButton = DialogItem(title = R.string.filter_list_add_button) {
+                filterListManager.addList(url, ::onFilterListAdded)
+            },
+            negativeButton = DialogItem(title = android.R.string.cancel) {},
+            onCancel = {}
+        )
+    }
+
+    private fun onFilterListAdded(result: AddListResult) {
+        val message = when (result) {
+            is AddListResult.Added ->
+                if (result.kind == FilterListKind.ABP) {
+                    R.string.filter_list_added_abp
+                } else {
+                    R.string.filter_list_added_hosts
+                }
+            AddListResult.Duplicate -> R.string.filter_list_duplicate
+            AddListResult.InvalidUrl,
+            AddListResult.DownloadFailed -> R.string.problem_download
+            AddListResult.UnrecognizedFormat -> R.string.filter_list_unrecognized
+        }
+        activity.toast(message)
     }
 
     private fun continueLoadingUrl(

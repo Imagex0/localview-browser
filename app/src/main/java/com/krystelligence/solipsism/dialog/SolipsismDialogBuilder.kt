@@ -6,6 +6,7 @@ import com.krystelligence.solipsism.browser.BrowserContract
 import com.krystelligence.solipsism.databinding.DialogEditBookmarkBinding
 import com.krystelligence.solipsism.extensions.resizeAndShow
 import android.app.Activity
+import android.graphics.Bitmap
 import android.view.View
 import android.widget.ArrayAdapter
 import androidx.appcompat.app.AlertDialog
@@ -75,13 +76,21 @@ class SolipsismDialogBuilder @Inject constructor() {
 
     /**
      * Show the add bookmark dialog. Shows a dialog with the title and URL pre-populated.
+     *
+     * @param initialIcon the icon preview to show (site favicon or default letter).
+     * @param showReset whether the reset-to-site-icon button is shown.
+     * @param onPickIcon launches the system image picker; the chosen bitmap is
+     * delivered to the provided setter so the preview updates in place.
      */
     fun showAddBookmarkDialog(
         activity: Activity,
         currentTitle: String,
         currentUrl: String,
         folders: List<String>,
-        onSave: (title: String, url: String, folder: String) -> Unit
+        initialIcon: Bitmap,
+        showReset: Boolean,
+        onPickIcon: ((Bitmap?) -> Unit) -> Unit,
+        onSave: (title: String, url: String, folder: String, icon: Bitmap?, clearIcon: Boolean) -> Unit
     ) {
         val editBookmarkDialog = MaterialAlertDialogBuilder(activity)
         editBookmarkDialog.setTitle(R.string.action_add_bookmark)
@@ -90,6 +99,26 @@ class SolipsismDialogBuilder @Inject constructor() {
         binding.bookmarkTitle.setText(currentTitle)
         binding.bookmarkUrl.setText(currentUrl)
         binding.bookmarkFolder.setText("")
+
+        var pickedIcon: Bitmap? = null
+        var resetIcon = false
+        binding.bookmarkIconPreview.setImageBitmap(initialIcon)
+        binding.bookmarkIconReset.visibility = if (showReset) View.VISIBLE else View.GONE
+        binding.bookmarkIconChange.setOnClickListener {
+            onPickIcon { bitmap ->
+                if (bitmap != null) {
+                    pickedIcon = bitmap
+                    resetIcon = false
+                    binding.bookmarkIconPreview.alpha = 1f
+                    binding.bookmarkIconPreview.setImageBitmap(bitmap)
+                }
+            }
+        }
+        binding.bookmarkIconReset.setOnClickListener {
+            pickedIcon = null
+            resetIcon = true
+            binding.bookmarkIconPreview.alpha = 0.4f
+        }
 
         val suggestionsAdapter = ArrayAdapter(
             activity,
@@ -101,7 +130,9 @@ class SolipsismDialogBuilder @Inject constructor() {
             onSave(
                 binding.bookmarkTitle.text.toString(),
                 binding.bookmarkUrl.text.toString(),
-                binding.bookmarkFolder.text.toString()
+                binding.bookmarkFolder.text.toString(),
+                pickedIcon,
+                resetIcon
             )
         }
         editBookmarkDialog.setNegativeButton(R.string.action_cancel) { _, _ -> }
@@ -114,7 +145,10 @@ class SolipsismDialogBuilder @Inject constructor() {
         currentUrl: String,
         currentFolder: String,
         folders: List<String>,
-        onSave: (title: String, url: String, folder: String) -> Unit
+        initialIcon: Bitmap,
+        showReset: Boolean,
+        onPickIcon: ((Bitmap?) -> Unit) -> Unit,
+        onSave: (title: String, url: String, folder: String, icon: Bitmap?, clearIcon: Boolean) -> Unit
     ) {
         val editBookmarkDialog = MaterialAlertDialogBuilder(activity)
         editBookmarkDialog.setTitle(R.string.dialog_edit_bookmark)
@@ -123,6 +157,26 @@ class SolipsismDialogBuilder @Inject constructor() {
         binding.bookmarkTitle.setText(currentTitle)
         binding.bookmarkUrl.setText(currentUrl)
         binding.bookmarkFolder.setText(currentFolder)
+
+        var pickedIcon: Bitmap? = null
+        var resetIcon = false
+        binding.bookmarkIconPreview.setImageBitmap(initialIcon)
+        binding.bookmarkIconReset.visibility = if (showReset) View.VISIBLE else View.GONE
+        binding.bookmarkIconChange.setOnClickListener {
+            onPickIcon { bitmap ->
+                if (bitmap != null) {
+                    pickedIcon = bitmap
+                    resetIcon = false
+                    binding.bookmarkIconPreview.alpha = 1f
+                    binding.bookmarkIconPreview.setImageBitmap(bitmap)
+                }
+            }
+        }
+        binding.bookmarkIconReset.setOnClickListener {
+            pickedIcon = null
+            resetIcon = true
+            binding.bookmarkIconPreview.alpha = 0.4f
+        }
 
         val suggestionsAdapter = ArrayAdapter(
             activity,
@@ -134,7 +188,9 @@ class SolipsismDialogBuilder @Inject constructor() {
             onSave(
                 binding.bookmarkTitle.text.toString(),
                 binding.bookmarkUrl.text.toString(),
-                binding.bookmarkFolder.text.toString()
+                binding.bookmarkFolder.text.toString(),
+                pickedIcon,
+                resetIcon
             )
         }
         editBookmarkDialog.resizeAndShow()

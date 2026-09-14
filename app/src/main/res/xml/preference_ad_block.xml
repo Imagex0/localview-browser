@@ -30,6 +30,11 @@
             android:summary="@string/custom_filters_summary"
             android:title="@string/custom_filters"/>
         <Preference
+            android:icon="@drawable/ic_action_plus"
+            android:key="preference_filter_lists"
+            android:summary="@string/filter_lists_summary"
+            android:title="@string/filter_lists"/>
+        <Preference
             android:icon="@drawable/ic_settings_globe"
             android:key="preference_hosts_source"
             android:summary="@string/block_source_default"

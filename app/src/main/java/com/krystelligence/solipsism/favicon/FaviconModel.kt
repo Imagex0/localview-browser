@@ -58,6 +58,16 @@ class FaviconModel @Inject constructor(
         val uri = url.toUri().toValidUri()
             ?: return@create it.onSuccess(createDefaultBitmapForTitle(title).pad())
 
+        val customIconFile = getCustomIconCacheFile(application, uri)
+
+        if (customIconFile.exists()) {
+            val customIcon = BitmapFactory.decodeFile(customIconFile.path, loaderOptions)
+
+            if (customIcon != null) {
+                return@create it.onSuccess(customIcon.pad())
+            }
+        }
+
         val faviconCacheFile = getFaviconCacheFile(application, uri)
 
         if (faviconCacheFile.exists()) {
@@ -90,6 +100,41 @@ class FaviconModel @Inject constructor(
             }
         }
 
+    /**
+     * Saves a user-chosen custom icon for a URL. It takes precedence over any
+     * automatically cached site favicon until [clearCustomIcon] is called.
+     */
+    fun saveCustomIcon(icon: Bitmap, url: String): Completable =
+        Completable.create { emitter ->
+            val uri = url.toUri().toValidUri() ?: return@create emitter.onComplete()
+
+            logger.log(TAG, "Saving custom icon for ${uri.host}")
+            FileOutputStream(getCustomIconCacheFile(application, uri)).safeUse {
+                icon.compress(Bitmap.CompressFormat.PNG, 100, it)
+                it.flush()
+                emitter.onComplete()
+            }
+        }
+
+    /**
+     * Removes a user-chosen custom icon so the automatic site favicon is used again.
+     */
+    fun clearCustomIcon(url: String): Completable =
+        Completable.create { emitter ->
+            val uri = url.toUri().toValidUri() ?: return@create emitter.onComplete()
+
+            getCustomIconCacheFile(application, uri).delete()
+            emitter.onComplete()
+        }
+
+    /**
+     * Whether a user-chosen custom icon exists for a URL. Cheap file check.
+     */
+    fun hasCustomIcon(url: String): Boolean =
+        url.toUri().toValidUri()
+            ?.let { getCustomIconCacheFile(application, it).exists() }
+            ?: false
+
     companion object {
 
         /**
@@ -114,6 +159,18 @@ class FaviconModel @Inject constructor(
             val faviconCache = faviconCacheFolder(app)
             faviconCache.mkdirs()
             return File(faviconCache, "$hash.png")
+        }
+
+        /**
+         * Cache file for a user-chosen custom icon. Kept separate from the
+         * automatic favicon so site updates never overwrite a manual choice.
+         */
+        fun getCustomIconCacheFile(app: Application, validUri: ValidUri): File {
+            val hash = validUri.host.hashCode().toString()
+
+            val faviconCache = faviconCacheFolder(app)
+            faviconCache.mkdirs()
+            return File(faviconCache, "custom_$hash.png")
         }
     }
 

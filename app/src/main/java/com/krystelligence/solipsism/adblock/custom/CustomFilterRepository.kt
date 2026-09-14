@@ -49,10 +49,57 @@ class CustomFilterRepository @Inject constructor(application: Application) {
         save()
     }
 
+    @Synchronized fun removeLines(lines: Collection<String>) {
+        var changed = false
+        lines.forEach { if (filters.remove(it) != null) changed = true }
+        if (changed) save()
+    }
+
     @Synchronized fun clear() {
         filters.clear()
         save()
     }
+
+    /**
+     * Replaces every manually entered rule with [lines], preserving rules that were
+     * imported from remote filter lists. Used by the editor so saving manual edits
+     * never wipes list subscriptions.
+     */
+    @Synchronized fun replaceManual(lines: List<String>): List<String> {
+        filters.entries.removeIf { it.value.source != CustomFilterSource.IMPORTED }
+        val errors = mutableListOf<String>()
+        lines.forEach { line ->
+            when (val result = CustomFilterParser.parse(line, CustomFilterSource.MANUAL)) {
+                is CustomFilterParseResult.Valid -> filters[result.filter.line] = result.filter
+                is CustomFilterParseResult.Invalid -> errors += "$line — ${result.message}"
+                CustomFilterParseResult.Comment -> Unit
+            }
+        }
+        save()
+        return errors
+    }
+
+    /**
+     * Toggles many rules at once with a single save, for per-list enable switches.
+     */
+    @Synchronized fun setEnabledForLines(lines: Collection<String>, enabled: Boolean) {
+        var changed = false
+        lines.forEach { line ->
+            filters[line]?.let {
+                if (it.enabled != enabled) {
+                    filters[line] = it.copy(enabled = enabled)
+                    changed = true
+                }
+            }
+        }
+        if (changed) save()
+    }
+
+    @Synchronized fun manualRules(): List<CustomFilter> =
+        filters.values.filter { it.source != CustomFilterSource.IMPORTED }
+
+    @Synchronized fun importedRuleCount(): Int =
+        filters.values.count { it.source == CustomFilterSource.IMPORTED }
 
     @Synchronized fun cosmeticFor(url: String): List<CosmeticFilter> {
         val host = CustomFilterParser.hostFromUrl(url) ?: return emptyList()

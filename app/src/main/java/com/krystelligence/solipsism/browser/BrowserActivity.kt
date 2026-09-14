@@ -58,6 +58,8 @@ import com.krystelligence.solipsism.extensions.resizeAndShow
 import com.krystelligence.solipsism.extensions.snackbar
 import com.krystelligence.solipsism.extensions.takeIfInstance
 import com.krystelligence.solipsism.extensions.tint
+import com.krystelligence.solipsism.extensions.toast
+import com.krystelligence.solipsism.favicon.FaviconModel
 import com.krystelligence.solipsism.qr.QrScannerActivity
 import com.krystelligence.solipsism.vault.VaultActivity
 import com.krystelligence.solipsism.screenshot.ScreenshotStudioActivity
@@ -77,6 +79,7 @@ import android.content.Context
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Outline
 import android.graphics.Rect
@@ -113,6 +116,8 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.schedulers.Schedulers
 import androidx.annotation.DrawableRes
 import androidx.annotation.MenuRes
 import androidx.appcompat.app.AlertDialog
@@ -142,6 +147,9 @@ import kotlinx.coroutines.withContext
 import com.krystelligence.solipsism.release.ReleaseUpdateCoordinator
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+/** Maximum dimension when downsampling a user-picked bookmark icon. */
+private const val MAX_BOOKMARK_ICON_DIMENSION_PX = 512
 
 /**
  * The base browser activity that governs the browsing experience for both default and incognito
@@ -193,6 +201,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     @Inject internal lateinit var downloadPermissionsHelper: DownloadPermissionsHelper
     @Inject internal lateinit var cookieManagerRepository: CookieManagerRepository
     @Inject internal lateinit var solipsismDialogBuilder: SolipsismDialogBuilder
+    @Inject internal lateinit var faviconModel: FaviconModel
     @Inject internal lateinit var tabPager: TabPager
     @Inject @MainHandler internal lateinit var mainHandler: Handler
 
@@ -235,6 +244,40 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
         fileChooserInProgress = false
         presenter.onFileChooserResult(result)
     }
+
+    private var bookmarkIconSetter: ((Bitmap?) -> Unit)? = null
+
+    private val bookmarkIconPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        val bitmap = uri?.let(::decodeBookmarkIconSafely)
+        if (bitmap == null && uri != null) {
+            toast(R.string.bookmark_icon_invalid)
+        }
+        bookmarkIconSetter?.invoke(bitmap)
+        bookmarkIconSetter = null
+    }
+
+    /**
+     * Decodes a user-picked image into a memory-safe icon bitmap, downsampling
+     * anything larger than [MAX_BOOKMARK_ICON_DIMENSION_PX].
+     */
+    private fun decodeBookmarkIconSafely(uri: Uri): Bitmap? = runCatching {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, bounds)
+        }
+        var sampleSize = 1
+        while (bounds.outWidth / sampleSize > MAX_BOOKMARK_ICON_DIMENSION_PX ||
+            bounds.outHeight / sampleSize > MAX_BOOKMARK_ICON_DIMENSION_PX
+        ) {
+            sampleSize *= 2
+        }
+        val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+        contentResolver.openInputStream(uri)?.use {
+            BitmapFactory.decodeStream(it, null, options)
+        }
+    }.getOrNull()
 
     /**
      * A WebView can temporarily place Binder or file-descriptor objects in its saved state while
@@ -2124,7 +2167,26 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     }
 
     override fun showAddBookmarkDialog(title: String, url: String, folders: List<String>) {
-        solipsismDialogBuilder.showAddBookmarkDialog(this, title, url, folders, presenter::onBookmarkConfirmed)
+        faviconModel.faviconForUrl(url, title.ifBlank { url })
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe { icon ->
+                solipsismDialogBuilder.showAddBookmarkDialog(
+                    activity = this,
+                    currentTitle = title,
+                    currentUrl = url,
+                    folders = folders,
+                    initialIcon = icon,
+                    showReset = faviconModel.hasCustomIcon(url),
+                    onPickIcon = { setter ->
+                        bookmarkIconSetter = setter
+                        bookmarkIconPickerLauncher.launch("image/*")
+                    },
+                    onSave = { dialogTitle, dialogUrl, folder, iconBitmap, clearIcon ->
+                        presenter.onBookmarkConfirmed(dialogTitle, dialogUrl, folder, iconBitmap, clearIcon)
+                    }
+                )
+            }
     }
 
     override fun showBookmarkOptionsDialog(bookmark: Bookmark.Entry) {
@@ -2155,7 +2217,27 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     }
 
     override fun showEditBookmarkDialog(title: String, url: String, folder: String, folders: List<String>) {
-        solipsismDialogBuilder.showEditBookmarkDialog(this, title, url, folder, folders, presenter::onBookmarkEditConfirmed)
+        faviconModel.faviconForUrl(url, title.ifBlank { url })
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe { icon ->
+                solipsismDialogBuilder.showEditBookmarkDialog(
+                    activity = this,
+                    currentTitle = title,
+                    currentUrl = url,
+                    currentFolder = folder,
+                    folders = folders,
+                    initialIcon = icon,
+                    showReset = faviconModel.hasCustomIcon(url),
+                    onPickIcon = { setter ->
+                        bookmarkIconSetter = setter
+                        bookmarkIconPickerLauncher.launch("image/*")
+                    },
+                    onSave = { dialogTitle, dialogUrl, dialogFolder, iconBitmap, clearIcon ->
+                        presenter.onBookmarkEditConfirmed(dialogTitle, dialogUrl, dialogFolder, iconBitmap, clearIcon)
+                    }
+                )
+            }
     }
 
     override fun showFolderOptionsDialog(folder: Bookmark.Folder) {

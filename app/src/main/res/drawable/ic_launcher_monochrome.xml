@@ -1,0 +1,31 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Monochrome Solipsism cube for Android 13+ themed icons, traced from
+         Isometric_Blue_Purple_Cube_60_120_Clean.svg (outer hexagon, central
+         hexagon, facet spokes, vertical face divisions). Single opaque
+         silhouette; the launcher applies the dynamic tint. -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M53.9,21 L81.6,37.6 L81.6,71 L53.9,87 L26.5,71 L26.5,37.6 Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M53.9,36.5 L68.9,45.2 L68.9,63.5 L53.9,72.2 L38.9,63.5 L38.9,45.2 Z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#000000"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M53.9,54.3 L53.9,36.5 M53.9,54.3 L68.9,45.2 M53.9,54.3 L68.9,63.5 M53.9,54.3 L53.9,72.2 M53.9,54.3 L38.9,63.5 M53.9,54.3 L38.9,45.2 M53.9,21 L53.9,36.5 M53.9,72.2 L53.9,87" />
+</vector>

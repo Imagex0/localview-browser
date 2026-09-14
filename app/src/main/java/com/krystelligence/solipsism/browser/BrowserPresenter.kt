@@ -1,6 +1,7 @@
 package com.krystelligence.solipsism.browser
 
 import android.app.Application
+import android.graphics.Bitmap
 
 import com.krystelligence.solipsism.adblock.allowlist.AllowListModel
 import com.krystelligence.solipsism.browser.data.CookieAdministrator
@@ -43,6 +44,7 @@ import com.krystelligence.solipsism.database.downloads.DownloadsRepository
 import com.krystelligence.solipsism.database.history.HistoryRepository
 import com.krystelligence.solipsism.database.vault.VaultRepository
 import com.krystelligence.solipsism.download.DecoyDownloadFactory
+import com.krystelligence.solipsism.favicon.FaviconModel
 import com.krystelligence.solipsism.html.bookmark.BookmarkPageFactory
 import com.krystelligence.solipsism.html.history.HistoryPageFactory
 import com.krystelligence.solipsism.haptics.HapticFeedbackController
@@ -61,6 +63,7 @@ import com.krystelligence.solipsism.utils.smartUrlFilter
 import com.krystelligence.solipsism.utils.value
 import androidx.activity.result.ActivityResult
 import androidx.core.net.toUri
+import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.core.Maybe
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.core.Scheduler
@@ -113,6 +116,7 @@ class BrowserPresenter @Inject constructor(
     private val logger: Logger,
     private val userPreferences: UserPreferences,
     private val browserCorePreferences: BrowserCorePreferences,
+    private val faviconModel: FaviconModel,
     private val application: Application,
     @SuggestionsClient private val okHttpClient: Single<OkHttpClient>,
     @IncognitoMode private val incognitoMode: Boolean
@@ -1211,21 +1215,39 @@ class BrowserPresenter @Inject constructor(
     }
 
     /**
+     * Persists the icon choice for a bookmark URL before the bookmark list refreshes.
+     * A picked image becomes a custom override; otherwise the current tab favicon is
+     * captured when the saved URL matches the open tab, and a reset clears any override.
+     */
+    private fun persistBookmarkIcon(url: String, icon: Bitmap?, clearIcon: Boolean): Completable =
+        when {
+            clearIcon -> faviconModel.clearCustomIcon(url)
+            icon != null -> faviconModel.saveCustomIcon(icon, url)
+            url == currentTab?.url ->
+                currentTab?.favicon?.let { faviconModel.cacheFaviconForUrl(it, url) }
+                    ?: Completable.complete()
+            else -> Completable.complete()
+        }
+
+    /**
      * Call when the user confirms the details for adding a bookmark.
      *
      * @param title The title of the bookmark.
      * @param url The URL of the bookmark.
      * @param folder The name of the folder the bookmark is in.
+     * @param icon A user-picked custom icon, or null to auto-capture the tab favicon.
+     * @param clearIcon Whether a previously saved custom icon should be removed.
      */
-    fun onBookmarkConfirmed(title: String, url: String, folder: String) {
-        compositeDisposable += bookmarkRepository.addBookmarkIfNotExists(
-            Bookmark.Entry(
-                url = url,
-                title = title.ifBlank { url },
-                position = 0,
-                folder = folder.asFolder()
-            )
-        ).flatMap {
+    fun onBookmarkConfirmed(title: String, url: String, folder: String, icon: Bitmap?, clearIcon: Boolean) {
+        compositeDisposable += persistBookmarkIcon(url, icon, clearIcon)
+            .andThen(bookmarkRepository.addBookmarkIfNotExists(
+                Bookmark.Entry(
+                    url = url,
+                    title = title.ifBlank { url },
+                    position = 0,
+                    folder = folder.asFolder()
+                )
+            )).flatMap {
             bookmarkPageFactory.buildPage()
                 .onErrorReturnItem("")
                 .flatMap { bookmarkRepository.bookmarksAndFolders(folder = currentFolder) }
@@ -1247,9 +1269,12 @@ class BrowserPresenter @Inject constructor(
      * @param title The title of the bookmark.
      * @param url The URL of the bookmark.
      * @param folder The name of the folder the bookmark is in.
+     * @param icon A user-picked custom icon, or null to keep the current one.
+     * @param clearIcon Whether a previously saved custom icon should be removed.
      */
-    fun onBookmarkEditConfirmed(title: String, url: String, folder: String) {
-        compositeDisposable += bookmarkRepository.editBookmark(
+    fun onBookmarkEditConfirmed(title: String, url: String, folder: String, icon: Bitmap?, clearIcon: Boolean) {
+        compositeDisposable += persistBookmarkIcon(url, icon, clearIcon)
+            .andThen(bookmarkRepository.editBookmark(
             oldBookmark = Bookmark.Entry(
                 url = url,
                 title = "",
@@ -1262,7 +1287,7 @@ class BrowserPresenter @Inject constructor(
                 position = 0,
                 folder = folder.asFolder()
             )
-        ).andThen(bookmarkRepository.bookmarksAndFolders(folder = currentFolder))
+        )).andThen(bookmarkRepository.bookmarksAndFolders(folder = currentFolder))
             .subscribeOn(databaseScheduler)
             .observeOn(mainScheduler)
             .subscribeBy { list ->

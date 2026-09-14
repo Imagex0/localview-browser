@@ -774,4 +774,29 @@
     <string name="settings_cluster_innovative_features">Recursos inovadores</string>
     <string name="settings_cluster_about">Sobre</string>
     <plurals name="notification_incognito_running_title"><item quantity="one">%1$d aba anônima aberta</item><item quantity="other">%1$d abas anônimas abertas</item></plurals>
+    <string name="bookmark_icon_change">Alterar ícone</string>
+    <string name="bookmark_icon_reset">Redefinir ícone</string>
+    <string name="bookmark_icon_invalid">Não foi possível usar essa imagem como ícone</string>
+    <string name="custom_filters_imported">Regras de lista importadas: %1$d</string>
+    <string name="filter_lists">Listas de filtros</string>
+    <string name="filter_lists_summary">%1$d listas · %2$d ativadas</string>
+    <string name="filter_list_empty">Ainda não há listas de filtros. Adicione uma para ampliar o bloqueio.</string>
+    <string name="filter_list_add_button">Adicionar</string>
+    <string name="filter_list_add_list">Adicionar lista</string>
+    <string name="filter_list_refresh">Atualizar</string>
+    <string name="filter_list_delete">Excluir</string>
+    <string name="filter_list_updated">Atualizado em %1$s</string>
+    <string name="filter_list_never">Nunca</string>
+    <string name="filter_list_kind_hosts">Hosts</string>
+    <string name="filter_list_kind_abp">Adblock</string>
+    <string name="filter_list_detected_title">Adicionar lista de filtros?</string>
+    <string name="filter_list_detected_message">Assinar esta lista de filtros?\n\n%1$s</string>
+    <string name="filter_list_added_hosts">Lista Hosts adicionada e ativada</string>
+    <string name="filter_list_added_abp">Lista Adblock importada e ativada</string>
+    <string name="filter_list_duplicate">Esta lista de filtros já foi adicionada</string>
+    <string name="filter_list_unrecognized">Lista de filtros não reconhecida</string>
+    <string name="filter_list_removed">Lista de filtros removida</string>
+    <string name="filter_list_refreshed">Lista de filtros atualizada</string>
+    <string name="filter_list_refresh_failed">Não foi possível atualizar a lista de filtros</string>
+    <string name="filter_list_refreshed_all">%1$d atualizadas · %2$d com falha</string>
 </resources>

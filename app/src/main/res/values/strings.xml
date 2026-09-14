@@ -603,6 +603,9 @@
     <string name="dialog_bookmark">Bookmark</string>
     <string name="dialog_folder">Folder</string>
     <string name="dialog_edit_bookmark">Edit bookmark</string>
+    <string name="bookmark_icon_change">Change icon</string>
+    <string name="bookmark_icon_reset">Reset icon</string>
+    <string name="bookmark_icon_invalid">Could not use that image as an icon</string>
     <string name="dialog_remove_from_history">Remove from history</string>
     <string name="dialog_history_long_press">History</string>
     <string name="dialog_download_image">Download image</string>
@@ -670,6 +673,28 @@
     <string name="custom_filters_help_message">Supported examples:\n\nexample.com##.advertisement\nexample.com#@#.keep-this\n##.global-banner\n||ads.example.com^\n@@||trusted.example.com^\n\nUse ## to hide elements and #@# to create an exception. CSS selectors must be valid. JavaScript, +js, #?#, and snippet filters are not supported. Keep selectors specific to avoid breaking pages.</string>
     <string name="custom_filters_saved">Custom filters saved</string>
     <string name="custom_filters_invalid">Invalid lines skipped: %1$d</string>
+    <string name="custom_filters_imported">Imported list rules: %1$d</string>
+    <string name="filter_lists">Filter lists</string>
+    <string name="filter_lists_summary">%1$d lists · %2$d enabled</string>
+    <string name="filter_list_empty">No filter lists yet. Add one to extend blocking.</string>
+    <string name="filter_list_add_button">Add</string>
+    <string name="filter_list_add_list">Add list</string>
+    <string name="filter_list_refresh">Refresh</string>
+    <string name="filter_list_delete">Delete</string>
+    <string name="filter_list_updated">Updated %1$s</string>
+    <string name="filter_list_never">Never</string>
+    <string name="filter_list_kind_hosts">Hosts</string>
+    <string name="filter_list_kind_abp">Adblock</string>
+    <string name="filter_list_detected_title">Add filter list?</string>
+    <string name="filter_list_detected_message">Subscribe to this filter list?\n\n%1$s</string>
+    <string name="filter_list_added_hosts">Hosts list added and enabled</string>
+    <string name="filter_list_added_abp">Adblock list imported and enabled</string>
+    <string name="filter_list_duplicate">This filter list is already added</string>
+    <string name="filter_list_unrecognized">Not a recognizable filter list</string>
+    <string name="filter_list_removed">Filter list removed</string>
+    <string name="filter_list_refreshed">Filter list refreshed</string>
+    <string name="filter_list_refresh_failed">Could not refresh the filter list</string>
+    <string name="filter_list_refreshed_all">%1$d refreshed · %2$d failed</string>
 
     <string name="infinity">∞</string>
 
