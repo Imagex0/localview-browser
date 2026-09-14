@@ -40,6 +40,7 @@ class TabPager @Inject constructor(
      */
     fun selectTab(id: Int) {
         val selected = tabViews[id]!!.value
+        updateRendererPriorities(id)
         val selectedHost = selected as? TabContentHost
         if (selectedHost?.isAntaresHost() == true) {
             if (selectedHost.isShowingNativeHomepage()) {
@@ -60,10 +61,42 @@ class TabPager @Inject constructor(
             )
         }
 
+        // removeTabViews marks deselected engine views INVISIBLE (so a stale
+        // SurfaceView frame cannot linger above the shared renderer). A reselect
+        // must undo that: without this the tab keeps showing whatever was
+        // beneath it (previous page / black) because showEngine only runs on
+        // content-kind changes, not on plain reselects.
+        (tabView as? TabContentHost)?.currentEngineView()?.let { engine ->
+            if (engine.parent === tabView && engine.visibility != View.VISIBLE) {
+                engine.visibility = View.VISIBLE
+            }
+        }
+
         if (tabView is TabContentHost) {
             tabView.setEngineAttachedListener { configureEngineView(id, it) }
         } else {
             configureEngineView(id, tabView)
+        }
+    }
+
+    /**
+     * Bound renderer priority decides what the OS may reclaim under memory
+     * pressure. Without this every tab stays IMPORTANT, background renderers
+     * are never killed, and the shared tile budget starves until the
+     * foreground tab goes permanently black with no RenderProcessGone to
+     * recover from. Demote everything but the selected tab so pressure
+     * kills background renderers (recovered via reload) instead of
+     * degrading the visible page.
+     */
+    private fun updateRendererPriorities(selectedId: Int) {
+        tabViews.forEach { (tabId, lazyView) ->
+            if (!lazyView.isInitialized()) return@forEach
+            val webView = lazyView.value as? WebView ?: return@forEach
+            if (tabId == selectedId) {
+                webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false)
+            } else {
+                webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_WAIVED, true)
+            }
         }
     }
 

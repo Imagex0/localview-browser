@@ -699,7 +699,11 @@ class TabAdapter @AssistedInject constructor(
             // on return from background. Only toggle preraster, as proven since 6.1.7.
             if (field && engineContentVisible) {
                 webView.onResume()
-                webView.settings.offscreenPreRaster = true
+                // Keep offscreen preraster OFF: forcing full-document raster blows the
+                // shared tile budget on long pages (tile_manager OOM -> permanent
+                // black with no recovery callback). Viewport-only raster may
+                // checkerboard while flinging huge pages; that beats a black tab.
+                webView.settings.offscreenPreRaster = false
                 latentInitializer?.let(::loadFromInitializer)
                 latentInitializer = null
                 // Force recomposite: a detached/reattached WebView often shows blank until
