@@ -33,6 +33,7 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
     private val frameCallbackScheduled = AtomicBoolean(false)
 
     private var experimentalMode = false
+    private var paintingActive = false
 
     constructor(context: Context) : this(context, null)
 
@@ -184,6 +185,9 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
     }
 
     fun reload() {
+        // A reload doubles as recovery: an engine left suspended by an unbalanced
+        // pause (e.g. aggressive surface teardown) would otherwise stay blank.
+        sharedServo?.suspend(false)
         rendererForDisplay()?.reload()
     }
 
@@ -294,6 +298,7 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
                     existing.setClient(client)
                     sharedClient = client
                     existing.resumePainting(surface, size)
+                    servoView.paintingActive = true
                     servoView.initialUri?.let(existing::loadUri)
                 } else {
                     servoView.servo = Servo(
@@ -315,11 +320,15 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
                     ).also {
                         sharedServo = it
                         sharedClient = servoView.surfaceHolderCallback.client
+                        servoView.paintingActive = true
                     }
                 }
             } else {
                 paused = false
-                servoView.servo!!.resumePainting(surface, size)
+                servoView.servo?.let {
+                    it.resumePainting(surface, size)
+                    servoView.paintingActive = true
+                }
             }
 
             servoView.requestVsync()
@@ -327,7 +336,7 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
 
         override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
             Log.d(LOGTAG, "GLThread::surfaceChanged")
-            servoView.servo!!.resize(Size(width, height))
+            servoView.servo?.resize(Size(width, height))
         }
 
         override fun surfaceDestroyed(holder: SurfaceHolder) {
@@ -336,7 +345,13 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
             paused = true
             Choreographer.getInstance().removeFrameCallback(servoView)
             servoView.frameCallbackScheduled.set(false)
-            servoView.servo!!.pausePainting()
+            // Pause exactly once per resume. Duplicate pauses race window teardown
+            // in the engine and wedge it blank (Rust panic converted to a Java
+            // exception with painting left half-torn-down).
+            if (servoView.paintingActive) {
+                servoView.paintingActive = false
+                servoView.servo?.pausePainting()
+            }
         }
     }
 
