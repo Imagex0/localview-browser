@@ -8,7 +8,7 @@ import org.gradle.api.tasks.TaskAction
 plugins {
     id("com.android.application")
     id("com.github.ben-manes.versions")
-    id("com.google.devtools.ksp") version "2.3.7"
+    id("com.google.devtools.ksp") version "2.3.12"
     id("com.anthonycr.plugins.mezzanine") version "2.3.0"
     id("com.autonomousapps.dependency-analysis") version "3.18.0"
     id("com.squareup.sort-dependencies") version "0.20.0"
