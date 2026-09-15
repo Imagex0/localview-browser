@@ -38,9 +38,18 @@ class JvmObjectStore<T>(
         if (storageFile.exists()) {
             val fileInputStream = FileInputStream(storageFile)
             val objectInputStream = ObjectInputStream(fileInputStream)
-            return@withContext objectInputStream.safeUse {
-                it.readObject() as T
+            val stored = objectInputStream.safeUse {
+                runCatching {
+                    @Suppress("UNCHECKED_CAST")
+                    it.readObject() as T
+                }.getOrNull()
             }
+            if (stored != null) {
+                return@withContext stored
+            }
+            // Unreadable (corrupt or foreign) cache: drop it so callers rebuild
+            // instead of crashing on a stale ClassCastException downstream.
+            storageFile.delete()
         }
 
         return@withContext null

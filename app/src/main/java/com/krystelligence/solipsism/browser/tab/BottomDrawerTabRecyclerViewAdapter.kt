@@ -138,6 +138,7 @@ class BottomDrawerTabRecyclerViewAdapter(
                 dstWidth = size.width.pxOrElse(Int.Companion::MIN_VALUE),
                 dstHeight = size.height.pxOrElse(Int.Companion::MIN_VALUE),
                 scale = Scale.FILL,
+                maxSize = size,
             )
             val outputWidth = (multiplier * input.width).roundToInt()
             val outputHeight = (multiplier * input.height).roundToInt()
