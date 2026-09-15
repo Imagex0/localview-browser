@@ -10,7 +10,7 @@ plugins {
     id("com.github.ben-manes.versions")
     id("com.google.devtools.ksp") version "2.3.12"
     id("com.anthonycr.plugins.mezzanine") version "2.3.0"
-    id("com.autonomousapps.dependency-analysis") version "3.18.0"
+    id("com.autonomousapps.dependency-analysis") version "3.19.2"
     id("com.squareup.sort-dependencies") version "0.20.0"
 }
 
@@ -126,18 +126,18 @@ android {
 }
 
 dependencies {
-    val robolectric = "4.16.1"
+    val robolectric = "4.17"
     val mezzanineVersion = "2.3.0"
     val daggerVersion = "2.60.1"
     val kotlin = "2.3.21"
     val datastore = "1.2.1"
     val coil = "3.4.0"
     val cameraX = "1.6.1"
-    val media3 = "1.11.0"
+    val media3 = "1.11.1"
 
     implementation("androidx.activity:activity:1.13.0")
     implementation("androidx.annotation:annotation:1.10.0")
-    implementation("androidx.appcompat:appcompat:1.7.1")
+    implementation("androidx.appcompat:appcompat:1.8.0")
     implementation("androidx.camera:camera-camera2:$cameraX")
     implementation("androidx.camera:camera-core:$cameraX")
     implementation("androidx.camera:camera-lifecycle:$cameraX")
@@ -151,7 +151,7 @@ dependencies {
     implementation("androidx.datastore:datastore-preferences:$datastore")
     implementation("androidx.datastore:datastore-preferences-core:$datastore")
     implementation("androidx.drawerlayout:drawerlayout:1.2.0")
-    implementation("androidx.fragment:fragment:1.8.9")
+    implementation("androidx.fragment:fragment:1.9.0")
     implementation("androidx.lifecycle:lifecycle-common:2.11.0")
     implementation("androidx.media3:media3-exoplayer:$media3")
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
@@ -167,7 +167,7 @@ dependencies {
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.guolindev.permissionx:permissionx:1.8.1")
     implementation("com.squareup.okhttp3:okhttp:5.4.0")
-    implementation("com.squareup.okio:okio:3.18.1")
+    implementation("com.squareup.okio:okio:3.18.2")
     implementation("io.coil-kt.coil3:coil:$coil")
     implementation("io.coil-kt.coil3:coil-core:$coil")
     implementation("io.coil-kt.coil3:coil-network-okhttp:$coil")
@@ -177,7 +177,7 @@ dependencies {
     implementation("javax.inject:javax.inject:1")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:$kotlin")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
-    implementation("org.jsoup:jsoup:1.23.1")
+    implementation("org.jsoup:jsoup:1.23.2")
     implementation("org.jspecify:jspecify:1.0.1")
     implementation("org.reactivestreams:reactive-streams:1.0.4")
 
