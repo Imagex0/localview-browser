@@ -30,4 +30,10 @@ interface HostsRepository {
      */
     suspend fun allHosts(): List<Host>
 
+    /**
+     * Monotonic counter bumped on every write. Lets readers detect changes
+     * without a database round-trip, keeping main-thread policy reads free.
+     */
+    fun hostsVersion(): Long = 0L
+
 }

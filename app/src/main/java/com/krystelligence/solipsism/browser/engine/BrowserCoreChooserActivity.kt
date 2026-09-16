@@ -46,6 +46,7 @@ import com.krystelligence.solipsism.search.SearchEngineProvider
 import com.krystelligence.solipsism.search.SearchEngineDisplayNames
 import com.krystelligence.solipsism.search.Suggestions
 import com.krystelligence.solipsism.search.engine.DuckSearch
+import com.krystelligence.solipsism.utils.NavigationSecurity
 
 /** First-run setup flow and settings entry point for the global browser-core choice. */
 class BrowserCoreChooserActivity : AppCompatActivity() {
@@ -423,11 +424,21 @@ class BrowserCoreChooserActivity : AppCompatActivity() {
     }
 
     private fun launchBrowser(starterUrls: ArrayList<String>? = null) {
-        val forwarded = Intent(intent).apply {
+        // Rebuild as a brand-new explicit intent carrying only validated fields.
+        // Forwarding `Intent(intent)` verbatim trips StrictMode's
+        // UnsafeIntentLaunchViolation and risks smuggling ClipData / URI grants
+        // from the external VIEW intent into the privileged browser task.
+        val incomingData = intent.dataString
+            ?.let(NavigationSecurity::sanitizeUserInput)
+            ?.takeIf(NavigationSecurity::isAllowedFromExternalIntent)
+        val forwarded = Intent(Intent.ACTION_VIEW).apply {
             setClass(this@BrowserCoreChooserActivity, DefaultBrowserActivity::class.java)
-            removeExtra(EXTRA_MANAGE_ONLY)
-            starterUrls?.let { putStringArrayListExtra(OnboardingStarterTabs.EXTRA_URLS, it) }
-            flags = flags and Intent.FLAG_ACTIVITY_NEW_TASK.inv()
+            if (incomingData != null) data = incomingData.toUri()
+            starterUrls
+                ?.mapNotNull(NavigationSecurity::sanitizeUserInput)
+                ?.filter(NavigationSecurity::isAllowedFromExternalIntent)
+                ?.let { putStringArrayListExtra(OnboardingStarterTabs.EXTRA_URLS, ArrayList(it)) }
+            addFlags(Intent.FLAG_ACTIVITY_FORWARD_RESULT or Intent.FLAG_ACTIVITY_PREVIOUS_IS_TOP)
         }
         startActivity(forwarded)
         finish()

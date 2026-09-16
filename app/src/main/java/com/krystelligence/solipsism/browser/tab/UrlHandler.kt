@@ -44,14 +44,24 @@ class UrlHandler @Inject constructor(
      * Return true if the [url] should be loaded by another app or in another way, false if the
      * browser can let the [view] continue loading as it wants.
      */
+    private val trustedRoots: List<File> by lazy {
+        listOf(
+            File(activity.filesDir, "generated-html"),
+            File(activity.filesDir, "homepage")
+        )
+    }
+
     fun shouldOverrideLoading(
         view: WebView,
         url: String,
-        headers: Map<String, String>
+        headers: Map<String, String>,
+        isMainFrame: Boolean = true
     ): Boolean {
-        if (!NavigationSecurity.isTrustedInternalFileUrl(url, trustedInternalRoots())) {
+        if (isMainFrame && !NavigationSecurity.isTrustedInternalFileUrl(url, trustedRoots)) {
             // The generated Solipsism pages are the only pages that need file access. Reset this
             // before every other top-level navigation so a local page cannot retain the exception.
+            // Skipped for subframes: touching WebSettings 24-48x per page is wasteful and
+            // trips StrictMode stacks without benefit.
             view.settings.allowFileAccess = false
         }
         if (url == HISTORY_CLEAR_URL) {
@@ -73,11 +83,11 @@ class UrlHandler @Inject constructor(
         if (url.startsWith(DECOY_DOWNLOAD_URL_PREFIX)) return true
         if (incognitoMode) {
             // If we are in incognito, immediately load, we don't want the url to leave the app
-            return continueLoadingUrl(view, url, headers)
+            return continueLoadingUrl(view, url, headers, isMainFrame)
         }
         if (URLUtil.isAboutUrl(url)) {
             // If this is an about page, immediately load, we don't need to leave the app
-            return continueLoadingUrl(view, url, headers)
+            return continueLoadingUrl(view, url, headers, isMainFrame)
         }
         if (FilterListDetector.isCandidate(url)) {
             // Offer to subscribe to filter-list links instead of rendering them as text.
@@ -90,7 +100,7 @@ class UrlHandler @Inject constructor(
             true
         } else {
             // If none of the special conditions was met, continue with loading the url
-            continueLoadingUrl(view, url, headers)
+            continueLoadingUrl(view, url, headers, isMainFrame)
         }
     }
 
@@ -130,14 +140,18 @@ class UrlHandler @Inject constructor(
     private fun continueLoadingUrl(
         webView: WebView,
         url: String,
-        headers: Map<String, String>
+        headers: Map<String, String>,
+        isMainFrame: Boolean = true
     ): Boolean {
-        if (!NavigationSecurity.isAllowedTopLevelNavigation(url, trustedInternalRoots())) {
+        if (!NavigationSecurity.isAllowedTopLevelNavigation(url, trustedRoots)) {
             webView.stopLoading()
             return true
         }
         return when {
-            headers.isEmpty() -> false
+            // Per WebViewClient docs: do NOT call loadUrl with the same URL then
+            // return true — it cancels + restarts the load. Return false instead.
+            // Headers only apply to main-frame loadUrl; subframes must not reload.
+            headers.isEmpty() || !isMainFrame -> false
             else -> {
                 webView.loadUrl(url, headers)
                 true
@@ -156,7 +170,7 @@ class UrlHandler @Inject constructor(
             // All intent:// URLs must go through IntentUtils, which rejects unsafe data schemes.
             return intentUtils.startActivityForUrl(view, url)
         } else if (URLUtil.isFileUrl(url)) {
-            if (NavigationSecurity.isTrustedInternalFileUrl(url, trustedInternalRoots())) {
+            if (NavigationSecurity.isTrustedInternalFileUrl(url, trustedRoots)) {
                 return false
             }
             val path = runCatching { url.toUri().path }.getOrNull()
@@ -198,10 +212,8 @@ class UrlHandler @Inject constructor(
         return false
     }
 
-    private fun trustedInternalRoots(): List<File> = listOf(
-        File(activity.filesDir, "generated-html"),
-        File(activity.filesDir, "homepage")
-    )
+    @Deprecated("Use cached trustedRoots", ReplaceWith("trustedRoots"))
+    private fun trustedInternalRoots(): List<File> = trustedRoots
 
     companion object {
         private const val TAG = "UrlHandler"

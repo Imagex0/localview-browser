@@ -306,6 +306,28 @@ internal object AntaresHtmlMediaBridge {
           [
             'pointerdown', 'touchstart', 'mousedown', 'touchend', 'pointerup', 'click'
           ].forEach(type => document.addEventListener(type, requestPlayback, true));
+          // Autoplay pages (e.g. TikTok feed) fail in-engine with
+          // VIDEOJS CODE:4 MEDIA_ERR_SRC_NOT_SUPPORTED without any tap.
+          // Forward the failing <video> to Android Media3 on error, reusing
+          // the same throttled publish path as gestures.
+          document.addEventListener('error', event => {
+            const video = event.target && event.target.closest ?
+              event.target.closest('video') : null;
+            if (video) requestPlayback({ target: video });
+          }, true);
+          try {
+            const players = window.videojs && window.videojs.getPlayers ?
+              window.videojs.getPlayers() : {};
+            Object.values(players).forEach(player => {
+              try {
+                player.on && player.on('error', () => {
+                  const el = player.el && player.el();
+                  const video = el && el.querySelector ? el.querySelector('video') : null;
+                  requestPlayback({ target: video || document.querySelector('video') });
+                });
+              } catch (_) {}
+            });
+          } catch (_) {}
         })();
         """.trimIndent()
 

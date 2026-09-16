@@ -14,6 +14,7 @@ import com.krystelligence.solipsism.migration.Cleanup
 import com.krystelligence.solipsism.utils.FileUtils
 import com.krystelligence.solipsism.utils.LeakCanaryUtils
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.os.Build
 import android.os.StrictMode
 import android.webkit.WebView
@@ -58,6 +59,9 @@ class BrowserApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Seed Servo's profile dir before the first engine init so
+        // auth_cache/hsts_list/cookie_jar ENOENTs don't spam error logs.
+        runCatching { File(filesDir, "servo").mkdirs() }
         if (BuildConfig.DEBUG) {
             StrictMode.setThreadPolicy(
                 StrictMode.ThreadPolicy.Builder()
@@ -126,6 +130,19 @@ class BrowserApp : Application() {
         }
 
         registerActivityLifecycleCallbacks(proxyAdapter)
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        // Chromium's tile_manager logs "tile memory limits exceeded, some content
+        // may not draw" when NOW tiles exceed the Android budget (see wikipedia
+        // eval log). Single-visible-renderer discipline is enforced in TabPager;
+        // on critical pressure only hint the VM — never clearCache() here since
+        // that would drop the HTTP cache for all tabs.
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+            System.gc()
+        }
     }
 
     /**

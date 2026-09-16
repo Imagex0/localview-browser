@@ -26,6 +26,7 @@ import com.krystelligence.solipsism.browser.engine.BrowserMediaRequest
 import com.krystelligence.solipsism.constant.SCHEME_HOMEPAGE
 import com.krystelligence.solipsism.constant.SCHEME_ANTARES_HOMEPAGE
 import com.krystelligence.solipsism.ids.ViewIdGenerator
+import com.krystelligence.solipsism.log.Logger
 import com.krystelligence.solipsism.preference.UserPreferences
 import com.krystelligence.solipsism.preference.DeveloperPreferences
 import com.krystelligence.solipsism.preference.antaresUserAgent
@@ -51,6 +52,7 @@ class AntaresTabAdapter private constructor(
     private val userPreferences: UserPreferences,
     private val developerPreferences: DeveloperPreferences,
     private val contentBlockingPolicy: AntaresContentBlockingPolicy,
+    private val logger: Logger,
 ) : TabModel, AntaresSessionView.Listener {
     private val contentKindSubject = BehaviorSubject.createDefault(
         initialUrlResolver.contentKind(tabInitializer),
@@ -343,6 +345,7 @@ class AntaresTabAdapter private constructor(
         coordinateBridge?.onAntaresProbeResult(requestId, descriptor)
     }
     override fun onEngineError(message: String) {
+        logger.log(CONSOLE_TAG, message.ifBlank { "Antares Engine unavailable" })
         loadingTracker.complete()
         if (contentKind == TabContentKind.NATIVE_HOMEPAGE) return
         currentTitle = message.ifBlank { "Antares Engine unavailable" }
@@ -377,6 +380,7 @@ class AntaresTabAdapter private constructor(
         private val userPreferences: UserPreferences,
         private val developerPreferences: DeveloperPreferences,
         private val contentBlockingPolicy: AntaresContentBlockingPolicy,
+        private val logger: Logger,
     ) {
         fun create(initializer: TabInitializer, tabType: TabModel.Type): AntaresTabAdapter =
             AntaresTabAdapter(
@@ -388,7 +392,12 @@ class AntaresTabAdapter private constructor(
                 userPreferences,
                 developerPreferences,
                 contentBlockingPolicy,
+                logger,
             )
+    }
+
+    companion object {
+        private const val CONSOLE_TAG = "AntaresConsole"
     }
 }
 

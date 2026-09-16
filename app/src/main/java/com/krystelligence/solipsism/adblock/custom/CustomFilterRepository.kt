@@ -11,6 +11,13 @@ class CustomFilterRepository @Inject constructor(application: Application) {
     private val file = File(application.filesDir, "adblock/custom-filters.txt")
     private val filters = linkedMapOf<String, CustomFilter>()
 
+    /**
+     * Bumped on every persisted mutation. Lets readers detect changes without
+     * hashing the rule set, keeping main-thread policy reads free.
+     */
+    @Volatile var version = 0L
+        private set
+
     init {
         file.parentFile?.mkdirs()
         load()
@@ -137,5 +144,6 @@ class CustomFilterRepository @Inject constructor(application: Application) {
         val temporary = File(file.parentFile, "${file.name}.tmp")
         temporary.writeText(filters.values.joinToString("\n") { it.line } + if (filters.isNotEmpty()) "\n" else "")
         check(temporary.renameTo(file)) { "Unable to save custom filters" }
+        version++
     }
 }

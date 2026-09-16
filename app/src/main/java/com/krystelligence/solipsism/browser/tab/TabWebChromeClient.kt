@@ -9,6 +9,7 @@ import com.krystelligence.solipsism.dialog.DialogItem
 import com.krystelligence.solipsism.extensions.resizeAndShow
 import com.krystelligence.solipsism.favicon.FaviconModel
 import com.krystelligence.solipsism.haptics.HapticFeedbackController
+import com.krystelligence.solipsism.log.Logger
 import com.krystelligence.solipsism.preference.UserPreferences
 import com.krystelligence.solipsism.preference.SitePermissionDecision
 import com.krystelligence.solipsism.preference.SitePermissionKey
@@ -28,6 +29,7 @@ import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
+import android.webkit.ConsoleMessage
 import android.webkit.WebView
 import androidx.activity.result.ActivityResult
 import androidx.appcompat.app.AlertDialog
@@ -50,7 +52,8 @@ class TabWebChromeClient @Inject constructor(
     private val userPreferences: UserPreferences,
     private val webRtcPermissionsModel: WebRtcPermissionsModel,
     private val sitePermissionStore: SitePermissionStore,
-    private val hapticFeedback: HapticFeedbackController
+    private val hapticFeedback: HapticFeedbackController,
+    private val logger: Logger
 ) : WebChromeClient(), WebRtcPermissionsView {
 
     private val defaultColor = ThemeUtils.getPrimaryColor(activity)
@@ -161,6 +164,17 @@ class TabWebChromeClient @Inject constructor(
 
     override fun onProgressChanged(view: WebView, newProgress: Int) {
         progressObservable.onNext(newProgress)
+    }
+
+    override fun onConsoleMessage(message: ConsoleMessage): Boolean {
+        // Parity with Antares engine errors: route page JS console output
+        // through the app Logger so DEBUG logcat shows url + line + source.
+        logger.log(
+            CONSOLE_TAG,
+            "${message.messageLevel()}: ${message.message()} " +
+                "-- From line ${message.lineNumber()} of ${message.sourceId()}"
+        )
+        return true
     }
 
     override fun onReceivedTitle(view: WebView, title: String) {
@@ -347,5 +361,9 @@ class TabWebChromeClient @Inject constructor(
                     callback.invoke(origin, false, remember)
                 }
             }
+    }
+
+    companion object {
+        private const val CONSOLE_TAG = "WebViewConsole"
     }
 }

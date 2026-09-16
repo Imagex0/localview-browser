@@ -12,6 +12,7 @@ import android.database.sqlite.SQLiteOpenHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,6 +27,9 @@ class HostsDatabase @Inject constructor(
 ) : SQLiteOpenHelper(application, DATABASE_NAME, null, DATABASE_VERSION), HostsRepository {
 
     private val database: SQLiteDatabase by databaseDelegate()
+    private val writeVersion = AtomicLong(0L)
+
+    override fun hostsVersion(): Long = writeVersion.get()
 
     // Creating Tables
     override fun onCreate(db: SQLiteDatabase) {
@@ -45,21 +49,27 @@ class HostsDatabase @Inject constructor(
 
     override suspend fun addHosts(hosts: List<Host>): Unit =
         withContext(NonCancellable + databaseDispatcher) {
+            var committed = false
             database.apply {
                 beginTransaction()
 
-                for (item in hosts) {
-                    database.insertWithOnConflict(
-                        TABLE_HOSTS,
-                        null,
-                        item.toContentValues(),
-                        SQLiteDatabase.CONFLICT_IGNORE
-                    )
-                }
+                try {
+                    for (item in hosts) {
+                        database.insertWithOnConflict(
+                            TABLE_HOSTS,
+                            null,
+                            item.toContentValues(),
+                            SQLiteDatabase.CONFLICT_IGNORE
+                        )
+                    }
 
-                setTransactionSuccessful()
-                endTransaction()
+                    setTransactionSuccessful()
+                    committed = true
+                } finally {
+                    endTransaction()
+                }
             }
+            if (committed) writeVersion.incrementAndGet()
         }
 
     override suspend fun removeAllHosts(): Unit = withContext(NonCancellable + databaseDispatcher) {
@@ -67,6 +77,7 @@ class HostsDatabase @Inject constructor(
             delete(TABLE_HOSTS, null, null)
             close()
         }
+        writeVersion.incrementAndGet()
     }
 
     override fun containsHost(host: Host): Boolean {

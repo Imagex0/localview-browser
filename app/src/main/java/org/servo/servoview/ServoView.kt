@@ -60,6 +60,12 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
     open fun activateForTab(url: String) {
         val shared = sharedServo ?: return
         val client = surfaceHolderCallback.client ?: return
+        // Dedupe rapid re-activation for the same document sink. The eval logs
+        // showed site -> google.com ~1s apart when starter tabs raced the VIEW
+        // intent; the second loadUri tore down the just-started pipeline
+        // (BrowsingContext iterated after closure / closed-pipeline warnings).
+        if (url == lastActivatedUrl && sharedClient === client) return
+        lastActivatedUrl = url
         Log.d(
             LOGTAG,
             "activateForTab url=$url localSurface=${holder.surface.isValid} " +
@@ -361,5 +367,6 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
         private var sharedServo: Servo? = null
         private var sharedClient: Servo.Client? = null
         @Volatile private var sharedSurfaceValid = false
+        @Volatile private var lastActivatedUrl: String? = null
     }
 }

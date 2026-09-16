@@ -56,10 +56,14 @@ class Browser2Module {
             ?.mapNotNull(NavigationSecurity::sanitizeUserInput)
             ?.filter(NavigationSecurity::isAllowedFromExternalIntent)
             .orEmpty()
-        if (starterUrls.isNotEmpty()) return starterUrls
-        return listOfNotNull(
-            (intentExtractor.extractUrlFromIntent(initialIntent) as? BrowserContract.Action.LoadUrl)?.url,
-        )
+        // The external VIEW URL is authoritative and must not be dropped when
+        // starter tabs are present (previously `if (starterUrls.isNotEmpty())
+        // return starterUrls` lost the requested URL and the shared Antares
+        // renderer ended up navigating site -> google starter).
+        val intentUrl =
+            (intentExtractor.extractUrlFromIntent(initialIntent) as? BrowserContract.Action.LoadUrl)?.url
+        return (listOfNotNull(intentUrl) + starterUrls).distinct().takeIf { it.isNotEmpty() }
+            ?: emptyList()
     }
 
     // Construct the activity-scoped helper here so URL handling shares the browser activity.
