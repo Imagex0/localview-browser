@@ -34,6 +34,9 @@ class AntaresSessionView(
     private val installCssCompatibilityBridge = Runnable {
         evaluateJavascript(AntaresCssCompatibilityBridge.installScript)
     }
+    private val installConsoleBridge = Runnable {
+        evaluateJavascript(AntaresConsoleBridge.installScript)
+    }
     interface Listener {
         fun onReady()
         fun onLoadStarted()
@@ -44,8 +47,21 @@ class AntaresSessionView(
         fun onAlert(message: String)
         fun onMediaRequest(request: Bundle)
         fun onElementProbeResult(requestId: Int, descriptor: String)
+        fun onConsoleSignal(signal: ConsoleSignal)
+        fun onConsoleMessage(level: Int, message: String)
         fun onEngineError(message: String)
     }
+
+    /**
+     * Console entry decoded from the title channel. Plain data so the public
+     * listener never exposes the internal bridge type.
+     */
+    data class ConsoleSignal(
+        val level: String,
+        val message: String,
+        val source: String,
+        val line: Int
+    )
 
     init {
         setClient(this)
@@ -59,18 +75,41 @@ class AntaresSessionView(
 
     override fun onAlert(message: String) = listener.onAlert(message)
 
+    override fun onConsoleMessage(level: Int, message: String) =
+        listener.onConsoleMessage(level, message)
+
+    fun evaluateForConsole(script: String, onResult: (String) -> Unit) =
+        evaluateJavascript(script, onResult)
+
     override fun onLoadStarted() {
         rendererReady = true
+        // Console wrapper must install as early as possible: page scripts run
+        // during parsing, so installing only onLoadEnded would miss them all.
+        // The install is idempotent; the later onLoadEnded pass is backstop.
+        scheduleConsoleBridgeInstall()
         listener.onLoadStarted()
     }
 
     override fun onLoadEnded() {
         scheduleMediaBridgeInstall()
         scheduleCssCompatibilityBridgeInstall()
+        scheduleConsoleBridgeInstall()
         listener.onLoadEnded()
     }
 
     override fun onTitleChanged(title: String) {
+        AntaresConsoleBridge.decodeTitle(title)?.let { decoded ->
+            Log.d(LOG_TAG, "Console signal decoded: ${decoded.level} ${decoded.message.take(60)}")
+            listener.onConsoleSignal(
+                ConsoleSignal(
+                    level = decoded.level,
+                    message = decoded.message,
+                    source = decoded.source,
+                    line = decoded.line
+                )
+            )
+            return
+        }
         val request = AntaresHtmlMediaBridge.decodeTitle(title)
         if (request != null) {
             Log.d(LOG_TAG, "Forwarding HTML media request to Android media playback")
@@ -83,6 +122,7 @@ class AntaresSessionView(
     override fun onUrlChanged(url: String) {
         scheduleMediaBridgeInstall()
         scheduleCssCompatibilityBridgeInstall()
+        scheduleConsoleBridgeInstall()
         listener.onUrlChanged(url)
     }
 
@@ -166,6 +206,7 @@ class AntaresSessionView(
     fun destroySession() {
         removeCallbacks(installMediaBridge)
         removeCallbacks(installCssCompatibilityBridge)
+        removeCallbacks(installConsoleBridge)
         onPause()
     }
 
@@ -179,10 +220,16 @@ class AntaresSessionView(
         postDelayed(installCssCompatibilityBridge, CSS_BRIDGE_INSTALL_DELAY_MS)
     }
 
+    private fun scheduleConsoleBridgeInstall() {
+        removeCallbacks(installConsoleBridge)
+        postDelayed(installConsoleBridge, CONSOLE_BRIDGE_INSTALL_DELAY_MS)
+    }
+
     private companion object {
         private const val LOG_TAG = "AntaresMediaBridge"
         private const val MEDIA_BRIDGE_INSTALL_DELAY_MS = 500L
         private const val CSS_BRIDGE_INSTALL_DELAY_MS = 600L
+        private const val CONSOLE_BRIDGE_INSTALL_DELAY_MS = 650L
         @Volatile
         private var rendererReady = false
     }

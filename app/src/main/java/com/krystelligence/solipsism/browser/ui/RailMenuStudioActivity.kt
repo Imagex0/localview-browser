@@ -6,12 +6,14 @@ import android.view.DragEvent
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import com.krystelligence.solipsism.R
 import com.krystelligence.solipsism.ThemableBrowserActivity
@@ -22,6 +24,7 @@ import com.krystelligence.solipsism.utils.CustomFontManager
 class RailMenuStudioActivity : ThemableBrowserActivity() {
     private lateinit var binding: ActivityRailMenuStudioBinding
     private var stagedLayout = RailMenuLayout.default()
+    private var previewPosition = SolipsismRailPosition.RIGHT
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,9 +33,18 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
         stagedLayout = savedInstanceState?.getString(STATE_LAYOUT)
             ?.let(RailMenuLayoutCodec::decode)
             ?: userPreferences.railMenuLayout
+        previewPosition = savedInstanceState?.getString(STATE_POSITION)
+            ?.let { runCatching { SolipsismRailPosition.valueOf(it) }.getOrNull() }
+            ?: userPreferences.solipsismRailPosition
 
         binding.confirmButton.setOnClickListener {
             userPreferences.railMenuLayout = stagedLayout
+            userPreferences.solipsismRailPosition = previewPosition
+            if (previewPosition == SolipsismRailPosition.LEFT ||
+                previewPosition == SolipsismRailPosition.RIGHT
+            ) {
+                userPreferences.solipsismRailOnLeft = previewPosition == SolipsismRailPosition.LEFT
+            }
             setResult(RESULT_OK)
             finish()
         }
@@ -44,6 +56,16 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
         binding.studioAddressBottomActions.setOnDragListener { view, event -> onZoneDrop(RailMenuZone.ADDRESS, view, event) }
         binding.studioRailBottomActions.setOnDragListener { view, event -> onZoneDrop(RailMenuZone.BOTTOM, view, event) }
         binding.studioQuickActions.setOnDragListener { view, event -> onQuickDrop(view, event) }
+        listOf(
+            binding.studioPositionLeft,
+            binding.studioPositionRight,
+            binding.studioPositionTop,
+            binding.studioPositionBottom
+        ).forEach { it.isCheckable = true }
+        binding.studioPositionLeft.setOnClickListener { previewPosition = SolipsismRailPosition.LEFT; render() }
+        binding.studioPositionRight.setOnClickListener { previewPosition = SolipsismRailPosition.RIGHT; render() }
+        binding.studioPositionTop.setOnClickListener { previewPosition = SolipsismRailPosition.TOP; render() }
+        binding.studioPositionBottom.setOnClickListener { previewPosition = SolipsismRailPosition.BOTTOM; render() }
         binding.studioQuickActionsEnabled.setOnCheckedChangeListener { _, enabled ->
             if (stagedLayout.quickActionsEnabled != enabled) {
                 stagedLayout = stagedLayout.copy(quickActionsEnabled = enabled)
@@ -59,23 +81,33 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString(STATE_LAYOUT, RailMenuLayoutCodec.encode(stagedLayout))
+        outState.putString(STATE_POSITION, previewPosition.name)
         super.onSaveInstanceState(outState)
     }
 
     private fun render() {
         stagedLayout = RailMenuLayoutCodec.normalise(stagedLayout)
+        applyPreviewPosition()
         binding.studioRailActions.removeAllViews()
         binding.studioAddressTopActions.removeAllViews()
         binding.studioAddressBottomActions.removeAllViews()
         binding.studioRailBottomActions.removeAllViews()
         binding.studioQuickActions.removeAllViews()
         binding.studioOverflowActions.removeAllViews()
-        stagedLayout.topActions.forEach { action -> binding.studioRailActions.addView(createRailAction(action, RailMenuZone.TOP)) }
+        stagedLayout.topActions.forEach { action ->
+            binding.studioRailActions.addView(
+                createRailAction(action, RailMenuZone.TOP, horizontalZones())
+            )
+        }
         stagedLayout.addressActions.forEachIndexed { index, action ->
             val container = if (index == 0) binding.studioAddressTopActions else binding.studioAddressBottomActions
-            container.addView(createRailAction(action, RailMenuZone.ADDRESS))
+            container.addView(createRailAction(action, RailMenuZone.ADDRESS, horizontalZones()))
         }
-        stagedLayout.bottomActions.forEach { action -> binding.studioRailBottomActions.addView(createRailAction(action, RailMenuZone.BOTTOM)) }
+        stagedLayout.bottomActions.forEach { action ->
+            binding.studioRailBottomActions.addView(
+                createRailAction(action, RailMenuZone.BOTTOM, horizontalZones())
+            )
+        }
         stagedLayout.quickActions.forEach { action ->
             binding.studioQuickActions.addView(createQuickAction(action))
         }
@@ -95,8 +127,96 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
         CustomFontManager.applyToViewTree(binding.root, userPreferences.customFontPath)
     }
 
-    private fun createRailAction(action: RailActionId, zone: RailMenuZone): ImageButton = ImageButton(this).apply {
-        layoutParams = LinearLayout.LayoutParams(42.dp, 42.dp).apply { bottomMargin = 6.dp }
+    /**
+     * Mirrors the real rail placement in the mock preview. Zones keep their
+     * leading/address/trailing semantics; only the mock orientation changes,
+     * so arrangements transfer between sides without reinterpretation.
+     */
+    private fun applyPreviewPosition() {
+        val horizontal = previewPosition == SolipsismRailPosition.TOP ||
+            previewPosition == SolipsismRailPosition.BOTTOM
+        binding.studioPositionLeft.isChecked = previewPosition == SolipsismRailPosition.LEFT
+        binding.studioPositionRight.isChecked = previewPosition == SolipsismRailPosition.RIGHT
+        binding.studioPositionTop.isChecked = previewPosition == SolipsismRailPosition.TOP
+        binding.studioPositionBottom.isChecked = previewPosition == SolipsismRailPosition.BOTTOM
+
+        binding.studioRail.layoutParams = (binding.studioRail.layoutParams as FrameLayout.LayoutParams).apply {
+            if (horizontal) {
+                width = FrameLayout.LayoutParams.MATCH_PARENT
+                height = 72.dp
+                gravity = if (previewPosition == SolipsismRailPosition.TOP) Gravity.TOP else Gravity.BOTTOM
+            } else {
+                width = 72.dp
+                height = FrameLayout.LayoutParams.MATCH_PARENT
+                gravity = if (previewPosition == SolipsismRailPosition.LEFT) Gravity.START else Gravity.END
+            }
+        }
+        binding.studioRail.orientation =
+            if (horizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        binding.studioRailActions.orientation = binding.studioRail.orientation
+        binding.studioAddressTopActions.orientation = binding.studioRail.orientation
+        binding.studioAddressBottomActions.orientation = binding.studioRail.orientation
+        binding.studioRailBottomActions.orientation = binding.studioRail.orientation
+
+        binding.studioUrlSurface.layoutParams =
+            (binding.studioUrlSurface.layoutParams as LinearLayout.LayoutParams).apply {
+                if (horizontal) {
+                    width = 0
+                    height = LinearLayout.LayoutParams.MATCH_PARENT
+                    weight = 1f
+                    topMargin = 0
+                    bottomMargin = 0
+                    marginStart = 12.dp
+                    marginEnd = 12.dp
+                } else {
+                    width = 52.dp
+                    height = 0
+                    weight = 1f
+                    topMargin = 12.dp
+                    bottomMargin = 22.dp
+                    marginStart = 0
+                    marginEnd = 0
+                }
+            }
+        binding.studioUrlLabel.rotation = if (horizontal) 0f else 90f
+        binding.studioUrlLabel.layoutParams =
+            (binding.studioUrlLabel.layoutParams as ConstraintLayout.LayoutParams).apply {
+                if (horizontal) {
+                    width = 0
+                    height = ConstraintLayout.LayoutParams.WRAP_CONTENT
+                } else {
+                    width = 170.dp
+                    height = 0
+                }
+            }
+
+        binding.studioOverflowMenu.layoutParams =
+            (binding.studioOverflowMenu.layoutParams as FrameLayout.LayoutParams).apply {
+                val rail = 86.dp
+                val edge = 14.dp
+                leftMargin = if (previewPosition == SolipsismRailPosition.LEFT) rail else edge
+                rightMargin = if (previewPosition == SolipsismRailPosition.RIGHT) rail else edge
+                topMargin = if (previewPosition == SolipsismRailPosition.TOP) rail else edge
+                bottomMargin = if (previewPosition == SolipsismRailPosition.BOTTOM) rail else edge
+            }
+    }
+
+    private fun horizontalZones(): Boolean =
+        previewPosition == SolipsismRailPosition.TOP ||
+            previewPosition == SolipsismRailPosition.BOTTOM
+
+    private fun createRailAction(
+        action: RailActionId,
+        zone: RailMenuZone,
+        horizontal: Boolean = false
+    ): ImageButton = ImageButton(this).apply {
+        layoutParams = LinearLayout.LayoutParams(42.dp, 42.dp).apply {
+            if (horizontal) {
+                marginEnd = 6.dp
+            } else {
+                bottomMargin = 6.dp
+            }
+        }
         background = AppCompatResources.getDrawable(context, R.drawable.solipsism_blend_button_background)
         contentDescription = getString(descriptor(action).label)
         setImageResource(descriptor(action).icon)
@@ -391,6 +511,7 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
         RailActionId.USER_AGENT -> StudioActionDescriptor(R.drawable.ic_action_desktop, R.string.display_as)
         RailActionId.BLOCK_ELEMENT -> StudioActionDescriptor(R.drawable.ic_settings_text, R.string.block_element)
         RailActionId.COOKIE_MANAGER -> StudioActionDescriptor(R.drawable.ic_settings_privacy, R.string.cookie_manager)
+        RailActionId.CONSOLE -> StudioActionDescriptor(R.drawable.ic_action_console, R.string.action_console)
         RailActionId.SETTINGS -> StudioActionDescriptor(R.drawable.ic_action_settings, R.string.settings)
         RailActionId.OVERFLOW -> StudioActionDescriptor(R.drawable.ic_action_more_vertical, R.string.action_more)
     }
@@ -402,5 +523,6 @@ class RailMenuStudioActivity : ThemableBrowserActivity() {
 
     private companion object {
         const val STATE_LAYOUT = "rail_menu_studio_layout"
+        const val STATE_POSITION = "rail_menu_studio_position"
     }
 }

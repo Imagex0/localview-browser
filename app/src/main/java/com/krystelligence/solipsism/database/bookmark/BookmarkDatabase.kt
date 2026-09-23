@@ -167,11 +167,51 @@ class BookmarkDatabase @Inject constructor(
             if (it.moveToFirst()) return false
         }
 
+        val entryToInsert = if (entry.position == 0) {
+            val maxPosition = maxPositionInFolder(entry.folder.title)
+            if (maxPosition >= 0) entry.copy(position = maxPosition + 1) else entry
+        } else {
+            entry
+        }
+
         return database.insert(
             TABLE_BOOKMARK,
             null,
-            entry.bindBookmarkToContentValues()
+            entryToInsert.bindBookmarkToContentValues()
         ) != -1L
+    }
+
+    override fun updateBookmarkOrder(orderedEntries: List<Bookmark.Entry>): Completable =
+        Completable.fromAction {
+            database.beginTransaction()
+            try {
+                orderedEntries.forEachIndexed { index, entry ->
+                    val contentValues = ContentValues(1).apply {
+                        put(KEY_POSITION, index)
+                    }
+                    updateWithOptionalEndSlash(entry.url, contentValues)
+                }
+                database.setTransactionSuccessful()
+            } finally {
+                database.endTransaction()
+            }
+        }
+
+    private fun maxPositionInFolder(folderTitle: String): Int {
+        database.query(
+            TABLE_BOOKMARK,
+            arrayOf("MAX($KEY_POSITION)"),
+            "$KEY_FOLDER=?",
+            arrayOf(folderTitle),
+            null,
+            null,
+            null
+        ).use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                return cursor.getInt(0)
+            }
+            return -1
+        }
     }
 
     override fun deleteBookmark(entry: Bookmark.Entry): Single<Boolean> = Single.fromCallable {

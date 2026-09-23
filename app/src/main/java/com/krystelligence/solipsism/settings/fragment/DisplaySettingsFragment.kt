@@ -199,6 +199,13 @@ open class DisplaySettingsFragment : AbstractSettingsFragment() {
         )
 
         togglePreference(
+            preference = SETTINGS_RAIL_AUTO_HIDE,
+            isChecked = userPreferences.railAutoHideOnScroll,
+            summary = getString(R.string.rail_auto_hide_on_scroll_summary),
+            onCheckChange = { userPreferences.railAutoHideOnScroll = it }
+        )
+
+        togglePreference(
             preference = SETTINGS_VIEWPORT,
             isChecked = userPreferences.useWideViewPortEnabled,
             onCheckChange = { userPreferences.useWideViewPortEnabled = it }
@@ -1093,6 +1100,7 @@ open class DisplaySettingsFragment : AbstractSettingsFragment() {
         private const val SETTINGS_HIDESTATUSBAR = "fullScreenOption"
         private const val SETTINGS_FULLSCREEN = "fullscreen"
         private const val SETTINGS_HIDE_RAIL_IN_FULLSCREEN = "hide_rail_in_fullscreen"
+        private const val SETTINGS_RAIL_AUTO_HIDE = "rail_auto_hide_on_scroll"
         private const val SETTINGS_VIEWPORT = "wideViewPort"
         private const val SETTINGS_OVERVIEWMODE = "overViewMode"
         private const val SETTINGS_REFLOW = "text_reflow"

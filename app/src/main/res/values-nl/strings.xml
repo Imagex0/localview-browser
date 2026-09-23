@@ -797,4 +797,25 @@
     <string name="filter_list_refreshed">Filterlijst vernieuwd</string>
     <string name="filter_list_refresh_failed">De filterlijst kon niet worden vernieuwd</string>
     <string name="filter_list_refreshed_all">%1$d vernieuwd · %2$d mislukt</string>
+    <string name="action_console">Console</string>
+    <string name="console_hint">JavaScript uitvoeren op dit tabblad…</string>
+    <string name="console_run">Uitvoeren</string>
+    <string name="console_clear">Wis console</string>
+    <string name="console_close">Console sluiten</string>
+    <string name="console_empty">Nog geen berichten. Werk met de pagina of voer hieronder een opdracht uit.</string>
+    <string name="console_unsupported_engine">Het evalueren van opdrachten vereist de WebView-core in deze build.</string>
+    <string name="console_filter_all">Alle</string>
+    <string name="console_filter_errors">Fouten</string>
+    <string name="console_filter_warnings">Waarschuwingen</string>
+    <string name="console_filter_info">Info</string>
+    <string name="console_filter_verbose">Uitgebreid</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

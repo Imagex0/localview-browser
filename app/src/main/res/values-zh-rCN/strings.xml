@@ -810,4 +810,25 @@
     <string name="filter_list_refreshed">过滤器列表已刷新</string>
     <string name="filter_list_refresh_failed">无法刷新过滤器列表</string>
     <string name="filter_list_refreshed_all">%1$d 个已刷新 · %2$d 个失败</string>
+    <string name="action_console">控制台</string>
+    <string name="console_hint">在此标签页中运行 JavaScript…</string>
+    <string name="console_run">运行</string>
+    <string name="console_clear">清除控制台</string>
+    <string name="console_close">关闭控制台</string>
+    <string name="console_empty">暂无消息。请与页面互动或在下方运行命令。</string>
+    <string name="console_unsupported_engine">此版本需要 WebView 核心才能评估命令。</string>
+    <string name="console_filter_all">全部</string>
+    <string name="console_filter_errors">错误</string>
+    <string name="console_filter_warnings">警告</string>
+    <string name="console_filter_info">信息</string>
+    <string name="console_filter_verbose">详细信息</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

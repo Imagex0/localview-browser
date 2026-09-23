@@ -164,6 +164,11 @@ interface BrowserContract {
          */
         fun showCookieManager(url: String)
 
+        /**
+         * Show the developer console panel for the tab.
+         */
+        fun showConsole(tabId: Int)
+
         fun showScreenshot(bitmap: Bitmap)
 
         fun showScreenshotCaptureFailed()
@@ -350,7 +355,11 @@ interface BrowserContract {
         SHARE,
         COPY_LINK,
         REMOVE,
-        EDIT
+        EDIT,
+        MOVE_UP,
+        MOVE_DOWN,
+        MOVE_TO_TOP,
+        MOVE_TO_BOTTOM
     }
 
     /**

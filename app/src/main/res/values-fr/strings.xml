@@ -812,4 +812,25 @@
     <string name="filter_list_refreshed">Liste de filtres actualisée</string>
     <string name="filter_list_refresh_failed">Impossible d’actualiser la liste de filtres</string>
     <string name="filter_list_refreshed_all">%1$d actualisées · %2$d en échec</string>
+    <string name="action_console">Console</string>
+    <string name="console_hint">Exécuter du JavaScript dans cet onglet…</string>
+    <string name="console_run">Exécuter</string>
+    <string name="console_clear">Effacer la console</string>
+    <string name="console_close">Fermer la console</string>
+    <string name="console_empty">Aucun message pour le moment. Interagissez avec la page ou exécutez une commande ci-dessous.</string>
+    <string name="console_unsupported_engine">L’évaluation des commandes nécessite le cœur WebView sur cette version.</string>
+    <string name="console_filter_all">Tous</string>
+    <string name="console_filter_errors">Erreurs</string>
+    <string name="console_filter_warnings">Avertissements</string>
+    <string name="console_filter_info">Infos</string>
+    <string name="console_filter_verbose">Verbeux</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

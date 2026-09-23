@@ -70,6 +70,7 @@ class HomepageSettingsFragment : DisplaySectionFragment() {
 
 class FullscreenSettingsFragment : DisplaySectionFragment() {
     override val retainedKeys = setOf(
-        "fullScreenOption", "fullscreen", "hide_rail_in_fullscreen", "black_status_bar"
+        "fullScreenOption", "fullscreen", "hide_rail_in_fullscreen", "rail_auto_hide_on_scroll",
+        "black_status_bar"
     )
 }

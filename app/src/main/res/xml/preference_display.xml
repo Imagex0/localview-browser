@@ -20,6 +20,12 @@
             android:summary="@string/hide_rail_in_fullscreen_summary" />
         <SwitchPreferenceCompat
             android:defaultValue="false"
+            android:icon="@drawable/ic_action_desktop"
+            android:key="rail_auto_hide_on_scroll"
+            android:title="@string/rail_auto_hide_on_scroll"
+            android:summary="@string/rail_auto_hide_on_scroll_summary" />
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
             android:icon="@drawable/ic_action_invert"
             android:key="black_status_bar"
             android:title="@string/settings_black_status_bar" />

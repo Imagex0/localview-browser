@@ -806,4 +806,25 @@
     <string name="filter_list_refreshed">Filtre listesi yenilendi</string>
     <string name="filter_list_refresh_failed">Filtre listesi yenilenemedi</string>
     <string name="filter_list_refreshed_all">%1$d yenilendi · %2$d başarısız</string>
+    <string name="action_console">Konsol</string>
+    <string name="console_hint">Bu sekmede JavaScript çalıştır…</string>
+    <string name="console_run">Çalıştır</string>
+    <string name="console_clear">Konsolu temizle</string>
+    <string name="console_close">Konsolu kapat</string>
+    <string name="console_empty">Henüz mesaj yok. Sayfayla etkileşim kurun veya aşağıda bir komut çalıştırın.</string>
+    <string name="console_unsupported_engine">Komut değerlendirmesi için bu derlemede WebView çekirdeği gereklidir.</string>
+    <string name="console_filter_all">Tümü</string>
+    <string name="console_filter_errors">Hatalar</string>
+    <string name="console_filter_warnings">Uyarılar</string>
+    <string name="console_filter_info">Bilgi</string>
+    <string name="console_filter_verbose">Ayrıntılı</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

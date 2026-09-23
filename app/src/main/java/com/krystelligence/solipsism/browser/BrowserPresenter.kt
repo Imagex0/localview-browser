@@ -4,6 +4,8 @@ import android.app.Application
 import android.graphics.Bitmap
 
 import com.krystelligence.solipsism.adblock.allowlist.AllowListModel
+import com.krystelligence.solipsism.browser.console.ConsoleBottomSheet
+import com.krystelligence.solipsism.browser.console.ConsoleStore
 import com.krystelligence.solipsism.browser.data.CookieAdministrator
 import com.krystelligence.solipsism.browser.di.Browser2Scope
 import com.krystelligence.solipsism.browser.di.DatabaseScheduler
@@ -144,6 +146,8 @@ class BrowserPresenter @Inject constructor(
     )
     private var tabListState: List<TabViewState> = emptyList()
     private var currentTab: TabModel? = null
+    private var tabsInitialized = false
+    private var pendingLaunchUrl: String? = null
     private var currentFolder: Bookmark.Folder = Bookmark.Folder.Root
     private var isTabDrawerOpen = false
     private var isBookmarkDrawerOpen = false
@@ -193,7 +197,30 @@ class BrowserPresenter @Inject constructor(
             .observeOn(mainScheduler)
             .switchIfEmpty(model.createTab(homePageInitializer).map(::listOf))
             .subscribe { list ->
-                selectTab(model.selectTab(list.last().id))
+                tabsInitialized = true
+                // A launching VIEW intent may already have created and selected
+                // its tab while restoration was still reading from disk. Only
+                // fall back to the last restored tab when nothing was selected
+                // yet, otherwise the new tab loses selection (and the console,
+                // like the page, opens on a stale tab).
+                val pendingUrl = pendingLaunchUrl
+                pendingLaunchUrl = null
+                if (currentTab == null) {
+                    val provisioned = pendingUrl?.let { url ->
+                        model.tabsList.firstOrNull { it.url == url }
+                    }
+                    if (provisioned != null) {
+                        selectTab(model.selectTab(provisioned.id))
+                    } else if (pendingUrl != null) {
+                        createNewTabAndSelect(
+                            tabInitializer = UrlInitializer(pendingUrl),
+                            shouldSelect = true,
+                            tabType = TabModel.Type.EPHEMERAL
+                        )
+                    } else {
+                        selectTab(model.selectTab(list.last().id))
+                    }
+                }
             }
     }
 
@@ -451,6 +478,13 @@ class BrowserPresenter @Inject constructor(
             is BrowserContract.Action.LoadUrl -> if (action.url.isSpecialUrl()) {
                 view?.showLocalFileBlockedDialog()
                 pendingAction = action
+            } else if (!tabsInitialized) {
+                // Cold start: initializeTabs provisions the launch intent URL
+                // from InitialUrls. Stash it; the init subscriber below will
+                // select the provisioned tab (or create it if absent) instead
+                // of duplicating it here.
+                pendingLaunchUrl = action.url
+                return
             } else {
                 createNewTabAndSelect(
                     tabInitializer = UrlInitializer(action.url),
@@ -1033,6 +1067,7 @@ class BrowserPresenter @Inject constructor(
      * Call when the user clicks on a bookmark from the bookmark list at the provided [index].
      */
     fun onBookmarkClick(index: Int) {
+        if (index < 0 || index >= viewState.bookmarks.size) return
         when (val bookmark = viewState.bookmarks[index]) {
             is Bookmark.Entry -> {
                 currentTab?.loadUrl(bookmark.url)
@@ -1072,6 +1107,7 @@ class BrowserPresenter @Inject constructor(
      * Call when the user long presses on a bookmark in the bookmark list at the provided [index].
      */
     fun onBookmarkLongClick(index: Int) {
+        if (index < 0 || index >= viewState.bookmarks.size) return
         when (val item = viewState.bookmarks[index]) {
             is Bookmark.Entry -> view?.showBookmarkOptionsDialog(item)
             is Bookmark.Folder.Entry -> view?.showFolderOptionsDialog(item)
@@ -1363,13 +1399,95 @@ class BrowserPresenter @Inject constructor(
                             folders
                         )
                     }
+
+            BrowserContract.BookmarkOptionEvent.MOVE_UP -> moveBookmark(bookmark, -1)
+            BrowserContract.BookmarkOptionEvent.MOVE_DOWN -> moveBookmark(bookmark, 1)
+            BrowserContract.BookmarkOptionEvent.MOVE_TO_TOP -> moveBookmarkToEdge(bookmark, toTop = true)
+            BrowserContract.BookmarkOptionEvent.MOVE_TO_BOTTOM -> moveBookmarkToEdge(bookmark, toTop = false)
         }
+    }
+
+    /**
+     * Persists a drag-reordered bookmark list. Only [Bookmark.Entry] items carry
+     * positions; folders keep their relative order at the end of the list.
+     */
+    fun onBookmarksReordered(orderedDisplayList: List<Bookmark>) {
+        val orderedEntries = orderedDisplayList.filterIsInstance<Bookmark.Entry>()
+        if (orderedEntries.size < 2) return
+        compositeDisposable += bookmarkRepository.updateBookmarkOrder(orderedEntries)
+            .andThen(bookmarkRepository.bookmarksAndFolders(folder = currentFolder))
+            .subscribeOn(databaseScheduler)
+            .observeOn(mainScheduler)
+            .subscribeBy { list ->
+                hapticFeedback.success(HapticFeedbackController.Category.BOOKMARKS)
+                view?.updateState(viewState.copy(bookmarks = list))
+            }
+    }
+
+    private fun moveBookmark(bookmark: Bookmark.Entry, offset: Int) {
+        val current = viewState.bookmarks.filterIsInstance<Bookmark.Entry>()
+        val fromIndex = current.indexOfFirst { it.url == bookmark.url }
+        if (fromIndex == -1) return
+        val toIndex = (fromIndex + offset).coerceIn(0, current.size - 1)
+        if (toIndex == fromIndex) return
+        val reordered = current.toMutableList().apply {
+            add(toIndex, removeAt(fromIndex))
+        }
+        persistManualOrder(reordered)
+    }
+
+    private fun moveBookmarkToEdge(bookmark: Bookmark.Entry, toTop: Boolean) {
+        val current = viewState.bookmarks.filterIsInstance<Bookmark.Entry>()
+        if (current.none { it.url == bookmark.url }) return
+        val without = current.filterNot { it.url == bookmark.url }
+        val reordered = if (toTop) listOf(bookmark) + without else without + bookmark
+        persistManualOrder(reordered)
+    }
+
+    private fun persistManualOrder(orderedEntries: List<Bookmark.Entry>) {
+        compositeDisposable += bookmarkRepository.updateBookmarkOrder(orderedEntries)
+            .andThen(bookmarkRepository.bookmarksAndFolders(folder = currentFolder))
+            .subscribeOn(databaseScheduler)
+            .observeOn(mainScheduler)
+            .subscribeBy { list ->
+                hapticFeedback.success(HapticFeedbackController.Category.BOOKMARKS)
+                view?.updateState(viewState.copy(bookmarks = list))
+            }
     }
 
     fun onCookieManager() {
         currentTab?.url
             ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
             ?.let { view?.showCookieManager(it) }
+    }
+
+    fun onConsoleClick() {
+        currentTab?.let { view?.showConsole(it.id) }
+    }
+
+    fun consoleTabs(): List<ConsoleBottomSheet.ConsoleHost.TabRef> {
+        val selected = currentTab?.id
+        return model.tabsList
+            .sortedByDescending { it.id == selected }
+            .map { tab ->
+                ConsoleBottomSheet.ConsoleHost.TabRef(
+                    tabId = tab.id,
+                    engine = tab.engine,
+                    label = tab.url.toConsoleLabel()
+                )
+            }
+    }
+
+    fun consoleStoreFor(tabId: Int): ConsoleStore? =
+        model.tabsList.firstOrNull { it.id == tabId }?.consoleStore
+
+    fun evaluateConsole(tabId: Int, code: String): Boolean =
+        model.tabsList.firstOrNull { it.id == tabId }?.evaluateForConsole(code) ?: false
+
+    private fun String.toConsoleLabel(): String {
+        if (isBlank()) return "Tab"
+        return runCatching { java.net.URI(this).host?.removePrefix("www.") }.getOrNull()
+            ?.takeIf(String::isNotBlank) ?: take(24)
     }
 
     fun onScreenshotClick() {

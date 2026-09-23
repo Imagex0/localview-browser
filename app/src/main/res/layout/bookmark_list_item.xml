@@ -22,7 +22,8 @@
 
     <TextView
         android:id="@+id/textBookmark"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
+        android:layout_weight="1"
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:gravity="center_vertical"
@@ -30,5 +31,20 @@
         android:minHeight="?android:attr/listPreferredItemHeightSmall"
         android:singleLine="true"
         android:textAppearance="@style/TextAppearance.Solipsism.RowPrimary" />
+
+    <FrameLayout
+        android:id="@+id/dragHandleBookmark"
+        android:layout_width="32dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/bookmark_reorder_handle">
+
+        <View
+            android:layout_width="4dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bookmark_drag_pill" />
+
+    </FrameLayout>
 
 </LinearLayout>

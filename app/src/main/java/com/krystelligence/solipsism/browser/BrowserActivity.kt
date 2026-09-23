@@ -10,6 +10,9 @@ import com.krystelligence.solipsism.browser.di.injector
 import com.krystelligence.solipsism.browser.image.ImageLoader
 import com.krystelligence.solipsism.browser.keys.KeyEventAdapter
 import com.krystelligence.solipsism.browser.menu.MenuItemAdapter
+import com.krystelligence.solipsism.browser.console.ConsoleBottomSheet
+import com.krystelligence.solipsism.browser.console.ConsoleStore
+import com.krystelligence.solipsism.browser.data.CookieManagerSheet
 import com.krystelligence.solipsism.browser.menu.MenuSelection
 import com.krystelligence.solipsism.browser.search.IntentExtractor
 import com.krystelligence.solipsism.browser.search.SearchListener
@@ -32,7 +35,6 @@ import com.krystelligence.solipsism.browser.view.delegates.BottomTabViewDelegate
 import com.krystelligence.solipsism.browser.view.delegates.DesktopTabViewDelegate
 import com.krystelligence.solipsism.browser.view.delegates.DrawerTabViewDelegate
 import com.krystelligence.solipsism.browser.download.DownloadPermissionsHelper
-import com.krystelligence.solipsism.browser.data.CookieManagerDialog
 import com.krystelligence.solipsism.browser.data.CookieManagerRepository
 import com.krystelligence.solipsism.browser.view.delegates.SolipsismRailViewDelegate
 import com.krystelligence.solipsism.browser.view.targetUrl.LongPress
@@ -135,6 +137,10 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.SimpleItemAnimator
+import androidx.recyclerview.widget.ItemTouchHelper
+import com.krystelligence.solipsism.database.bookmark.BookmarkSortOrder
+import com.krystelligence.solipsism.browser.view.RailAutoHideController
+import com.krystelligence.solipsism.interpolator.BezierDecelerateInterpolator
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.lifecycle.lifecycleScope
 import javax.inject.Inject
@@ -155,7 +161,8 @@ private const val MAX_BOOKMARK_ICON_DIMENSION_PX = 512
  * The base browser activity that governs the browsing experience for both default and incognito
  * browsers.
  */
-abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View {
+abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View,
+    ConsoleBottomSheet.ConsoleHost, CookieManagerSheet.CookieHost {
 
     private var textToSpeech: TextToSpeech? = null
     private var textToSpeechReady = false
@@ -173,6 +180,11 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     private var browserMenuPopup: PopupWindow? = null
     private var bookmarkQuery = ""
     private var currentBookmarks: List<Bookmark> = emptyList()
+    private var bookmarkTouchHelper: ItemTouchHelper? = null
+    private var bookmarkDragOrderedList: List<Bookmark>? = null
+    private var currentRailWidthPx: Int = 0
+    private var currentRailOnLeft: Boolean = false
+    private var railAutoHideHidden: Boolean = false
     private var urlRailTransition: BrowserPresenter.UrlBarTabTransition? = null
     private var railHapticActive = false
     private var railHapticLastMovementAt = 0L
@@ -203,6 +215,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     @Inject internal lateinit var solipsismDialogBuilder: SolipsismDialogBuilder
     @Inject internal lateinit var faviconModel: FaviconModel
     @Inject internal lateinit var tabPager: TabPager
+    @Inject internal lateinit var railAutoHideController: RailAutoHideController
     @Inject @MainHandler internal lateinit var mainHandler: Handler
 
     private val inputMethodManager: InputMethodManager by lazy {
@@ -302,6 +315,13 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
 
         if (railPosition.isExperimental) {
             binding.toolbarLayout.visibility = View.VISIBLE
+            railAutoHideController.inputEnabled = false
+            railAutoHideController.showImmediately()
+            binding.toolbarLayout.animate().cancel()
+            binding.toolbarLayout.translationX = 0f
+            binding.toolbarLayout.translationY = 0f
+            binding.toolbarLayout.alpha = 1f
+            railAutoHideHidden = false
             applyHorizontalSolipsismRailPreferences(railWidth, superCompact)
             applyQrAndTabsButtonPositions()
             configureHorizontalSolipsismRailConstraints(railWidth)
@@ -320,7 +340,28 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
 
         binding.actionHome.visibility = View.VISIBLE
         binding.actionAddBookmark.visibility = View.VISIBLE
-        binding.toolbarLayout.visibility = if (hideRail) View.INVISIBLE else View.VISIBLE
+        currentRailWidthPx = railWidth
+        currentRailOnLeft = railOnLeft
+        val autoHideRequested = userPreferences.railAutoHideOnScroll &&
+            uiConfiguration.tabConfiguration == TabConfiguration.SOLIPSISM
+        railAutoHideController.inputEnabled = autoHideRequested && !hideRail
+        if (hideRail) {
+            binding.toolbarLayout.animate().cancel()
+            binding.toolbarLayout.visibility = View.INVISIBLE
+            binding.toolbarLayout.translationX = 0f
+            binding.toolbarLayout.alpha = 1f
+            railAutoHideHidden = false
+        } else if (railAutoHideController.isHidden && autoHideRequested) {
+            binding.toolbarLayout.animate().cancel()
+            binding.toolbarLayout.visibility = View.INVISIBLE
+            binding.toolbarLayout.translationX = if (railOnLeft) -railWidth.toFloat() else railWidth.toFloat()
+            binding.toolbarLayout.alpha = 0f
+            railAutoHideHidden = true
+        } else {
+            if (!railAutoHideHidden) {
+                binding.toolbarLayout.visibility = View.VISIBLE
+            }
+        }
 
         binding.toolbarLayout.updateLayoutParams<FrameLayout.LayoutParams> {
             width = railWidth
@@ -391,20 +432,112 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
 
         applyQrAndTabsButtonPositions()
 
-        val contentRailWidth = if (hideRail) 0 else railWidth
+        val autoHidden = railAutoHideHidden && railAutoHideController.isHidden
+        val contentRailWidth = if (hideRail || autoHidden) 0 else railWidth
         binding.contentFrame.applyRailMargin(contentRailWidth, railOnLeft)
         binding.progressView.applyRailMargin(contentRailWidth, railOnLeft)
         binding.addressOverlay?.applyRailMargin(
             railWidth = contentRailWidth,
             railOnLeft = railOnLeft,
             oppositeMargin = resources.getDimensionPixelSize(R.dimen.chrome_outer_margin),
-            extraRailMargin = if (hideRail) 0 else ADDRESS_OVERLAY_RAIL_GAP_DP.dp
+            extraRailMargin = if (hideRail || autoHidden) 0 else ADDRESS_OVERLAY_RAIL_GAP_DP.dp
         )
         binding.findBar.applyRailMargin(
             railWidth = contentRailWidth,
             railOnLeft = railOnLeft,
             oppositeMargin = resources.getDimensionPixelSize(R.dimen.chrome_outer_margin),
-            extraRailMargin = if (hideRail) 0 else FIND_BAR_RAIL_GAP_DP.dp
+            extraRailMargin = if (hideRail || autoHidden) 0 else FIND_BAR_RAIL_GAP_DP.dp
+        )
+    }
+
+    private fun isRailInteractionBlocked(): Boolean {
+        if (!::binding.isInitialized) return true
+        if (customView != null) return true
+        if (addressOverlayOpen) return true
+        if (binding.findBar.isVisible) return true
+        return try {
+            binding.drawerLayout.isDrawerOpen(binding.tabDrawer) ||
+                binding.drawerLayout.isDrawerOpen(binding.bookmarkDrawer)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun hideRailForAutoHide() {
+        if (!::binding.isInitialized) return
+        if (binding.toolbarLayout.visibility != View.VISIBLE) return
+        if (isRailInteractionBlocked()) {
+            railAutoHideController.showImmediately()
+            return
+        }
+        val rail = binding.toolbarLayout
+        val offScreenX = if (currentRailOnLeft) -currentRailWidthPx.toFloat() else currentRailWidthPx.toFloat()
+        rail.animate().cancel()
+        if (userPreferences.reducedMotionEnabled) {
+            applyRailAutoHideMargins(hidden = true)
+            rail.translationX = offScreenX
+            rail.alpha = 0f
+            rail.visibility = View.INVISIBLE
+            railAutoHideHidden = true
+            return
+        }
+        rail.animate()
+            .translationX(offScreenX)
+            .alpha(0f)
+            .setDuration(RAIL_AUTO_HIDE_DURATION_MS)
+            .setInterpolator(BezierDecelerateInterpolator())
+            .withEndAction {
+                applyRailAutoHideMargins(hidden = true)
+                rail.visibility = View.INVISIBLE
+                railAutoHideHidden = true
+            }
+            .start()
+    }
+
+    private fun showRailForAutoHide() {
+        if (!::binding.isInitialized) return
+        applyRailAutoHideMargins(hidden = false)
+        val rail = binding.toolbarLayout
+        rail.visibility = View.VISIBLE
+        railAutoHideHidden = false
+        val offScreenX = if (currentRailOnLeft) -currentRailWidthPx.toFloat() else currentRailWidthPx.toFloat()
+        if (userPreferences.reducedMotionEnabled) {
+            rail.animate().cancel()
+            rail.translationX = 0f
+            rail.alpha = 1f
+            return
+        }
+        rail.translationX = offScreenX
+        rail.alpha = 0f
+        rail.animate()
+            .translationX(0f)
+            .alpha(1f)
+            .setDuration(RAIL_AUTO_HIDE_DURATION_MS)
+            .setInterpolator(BezierDecelerateInterpolator())
+            .withEndAction {
+                rail.translationX = 0f
+                rail.alpha = 1f
+            }
+            .start()
+    }
+
+    private fun applyRailAutoHideMargins(hidden: Boolean) {
+        val railWidth = if (::binding.isInitialized) currentRailWidthPx else 0
+        val contentWidth = if (hidden) 0 else railWidth
+        if (!::binding.isInitialized) return
+        binding.contentFrame.applyRailMargin(contentWidth, currentRailOnLeft)
+        binding.progressView.applyRailMargin(contentWidth, currentRailOnLeft)
+        binding.addressOverlay?.applyRailMargin(
+            railWidth = contentWidth,
+            railOnLeft = currentRailOnLeft,
+            oppositeMargin = resources.getDimensionPixelSize(R.dimen.chrome_outer_margin),
+            extraRailMargin = if (hidden) 0 else ADDRESS_OVERLAY_RAIL_GAP_DP.dp
+        )
+        binding.findBar.applyRailMargin(
+            railWidth = contentWidth,
+            railOnLeft = currentRailOnLeft,
+            oppositeMargin = resources.getDimensionPixelSize(R.dimen.chrome_outer_margin),
+            extraRailMargin = if (hidden) 0 else FIND_BAR_RAIL_GAP_DP.dp
         )
     }
 
@@ -773,6 +906,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
             RailActionId.USER_AGENT -> presenter.onUserAgentMenuClick()
             RailActionId.BLOCK_ELEMENT -> presenter.onPickElement()
             RailActionId.COOKIE_MANAGER -> presenter.onCookieManager()
+            RailActionId.CONSOLE -> presenter.onConsoleClick()
             RailActionId.SETTINGS -> presenter.onMenuClick(MenuSelection.SETTINGS)
             else -> Unit
         }
@@ -801,6 +935,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
         RailActionId.USER_AGENT -> R.drawable.ic_action_desktop
         RailActionId.BLOCK_ELEMENT -> R.drawable.ic_settings_text
         RailActionId.COOKIE_MANAGER -> R.drawable.ic_settings_privacy
+        RailActionId.CONSOLE -> R.drawable.ic_action_console
         RailActionId.SETTINGS -> R.drawable.ic_action_settings
         else -> R.drawable.ic_action_more_vertical
     }
@@ -827,6 +962,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
         RailActionId.USER_AGENT -> R.string.display_as
         RailActionId.BLOCK_ELEMENT -> R.string.block_element
         RailActionId.COOKIE_MANAGER -> R.string.cookie_manager
+        RailActionId.CONSOLE -> R.string.action_console
         RailActionId.SETTINGS -> R.string.settings
         else -> R.string.action_more
     }
@@ -932,6 +1068,8 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
             .incognitoMode(isIncognito())
             .build()
             .inject(this)
+        railAutoHideController.onHide = ::hideRailForAutoHide
+        railAutoHideController.onShow = ::showRailForAutoHide
         // Rail configuration reads UiConfiguration, which is provided by the activity component.
         // Apply it only after injection so cold starts do not access an uninitialised property.
         applySolipsismRailPreferences()
@@ -1011,8 +1149,10 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
             imageLoader = imageLoader,
             showFavicons = { userPreferences.bookmarkFaviconsEnabled }
         )
+        bookmarksAdapter.onStartDrag = { holder -> bookmarkTouchHelper?.startDrag(holder) }
         binding.bookmarkListView.adapter = bookmarksAdapter
         binding.bookmarkListView.layoutManager = LinearLayoutManager(this)
+        attachBookmarkReorderHelper()
         binding.bookmarkSearch.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
@@ -1189,7 +1329,8 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     }
 
     override fun onNewIntent(intent: Intent) {
-        intentExtractor.extractUrlFromIntent(intent)?.let(presenter::onNewAction)
+        setIntent(intent)
+        handleUrlIntent(intent)
         super.onNewIntent(intent)
     }
 
@@ -1256,6 +1397,20 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
         ) {
             applySolipsismRailPreferences()
         }
+        handleUrlIntent(intent)
+    }
+
+    /**
+     * Routes a VIEW intent exactly once. `onResume` re-fires on every
+     * foregrounding and `getIntent()` keeps returning the launch intent, so
+     * without this guard each resume spawns a duplicate tab (and the console,
+     * like selection, chases a stale tab).
+     */
+    private var lastHandledIntent: Intent? = null
+
+    private fun handleUrlIntent(intent: Intent) {
+        if (intent === lastHandledIntent) return
+        lastHandledIntent = intent
         intentExtractor.extractUrlFromIntent(intent)?.let(presenter::onNewAction)
     }
 
@@ -1643,8 +1798,23 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     }
 
     override fun showCookieManager(url: String) {
-        CookieManagerDialog.show(this, url, cookieManagerRepository)
+        CookieManagerSheet.newInstance(url).show(supportFragmentManager, COOKIE_MANAGER_TAG)
     }
+
+    override fun cookieRepository(): CookieManagerRepository = cookieManagerRepository
+
+    override fun showConsole(tabId: Int) {
+        ConsoleBottomSheet.newInstance(tabId).show(supportFragmentManager, CONSOLE_TAG)
+    }
+
+    override fun consoleTabs(): List<ConsoleBottomSheet.ConsoleHost.TabRef> =
+        presenter.consoleTabs()
+
+    override fun consoleStore(tabId: Int): ConsoleStore? =
+        presenter.consoleStoreFor(tabId)
+
+    override fun evaluateConsole(tabId: Int, code: String): Boolean =
+        presenter.evaluateConsole(tabId, code)
 
     override fun showScreenshot(bitmap: Bitmap) {
         showScreenshotAnimation(bitmap)
@@ -2151,6 +2321,8 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     private fun updateBookmarkList(bookmarks: List<Bookmark>) {
         currentBookmarks = bookmarks
         val query = bookmarkQuery.trim().lowercase()
+        val manualMode = userPreferences.bookmarkSortOrder == BookmarkSortOrder.MANUAL
+        bookmarksAdapter.manualReorderEnabled = manualMode && query.isBlank()
         bookmarksAdapter.submitList(
             if (query.isBlank()) bookmarks else bookmarks.filter {
                 it.title.lowercase().contains(query) || it.url.lowercase().contains(query)
@@ -2158,8 +2330,64 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
         )
     }
 
+    private fun isManualBookmarkOrder(): Boolean =
+        userPreferences.bookmarkSortOrder == BookmarkSortOrder.MANUAL &&
+            bookmarkQuery.trim().isBlank()
+
+    private fun attachBookmarkReorderHelper() {
+        bookmarkTouchHelper?.attachToRecyclerView(null)
+        val callback = object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun isLongPressDragEnabled(): Boolean = false
+
+            override fun isItemViewSwipeEnabled(): Boolean = false
+
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                if (!isManualBookmarkOrder()) return 0
+                val item = bookmarksAdapter.currentList.getOrNull(viewHolder.bindingAdapterPosition)
+                if (item !is Bookmark.Entry) return 0
+                return super.getMovementFlags(recyclerView, viewHolder)
+            }
+
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                val from = viewHolder.bindingAdapterPosition
+                val to = target.bindingAdapterPosition
+                if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
+                val fromItem = bookmarksAdapter.currentList.getOrNull(from)
+                val toItem = bookmarksAdapter.currentList.getOrNull(to)
+                // Only reorder entries amongst themselves, keep folders in place.
+                if (fromItem !is Bookmark.Entry || toItem !is Bookmark.Entry) return false
+                bookmarkDragOrderedList = bookmarksAdapter.moveItem(from, to)
+                return true
+            }
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) = Unit
+
+            override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
+                super.clearView(recyclerView, viewHolder)
+                bookmarkDragOrderedList?.let { ordered ->
+                    bookmarkDragOrderedList = null
+                    presenter.onBookmarksReordered(ordered)
+                }
+            }
+        }
+        bookmarkTouchHelper = ItemTouchHelper(callback)
+        bookmarkTouchHelper?.attachToRecyclerView(binding.bookmarkListView)
+    }
+
     override fun renderTabs(tabs: List<TabViewState>) {
         tabsAdapter.submitList(tabs)
+        if (::railAutoHideController.isInitialized) {
+            railAutoHideController.resetForNewPage()
+        }
         if (uiConfiguration.tabConfiguration == TabConfiguration.DRAWER_BOTTOM ||
             uiConfiguration.tabConfiguration == TabConfiguration.SOLIPSISM) {
             binding.tabCountView.updateTabCount(tabs.size)
@@ -2190,6 +2418,7 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
     }
 
     override fun showBookmarkOptionsDialog(bookmark: Bookmark.Entry) {
+        val manualMode = userPreferences.bookmarkSortOrder == BookmarkSortOrder.MANUAL
         BrowserDialog.show(
             this, R.string.dialog_bookmark,
             DialogItem(title = R.string.dialog_open_new_tab) {
@@ -2212,6 +2441,18 @@ abstract class BrowserActivity : ThemableBrowserActivity(), BrowserContract.View
             },
             DialogItem(title = R.string.action_edit) {
                 presenter.onBookmarkOptionClick(bookmark, BrowserContract.BookmarkOptionEvent.EDIT)
+            },
+            DialogItem(title = R.string.bookmark_move_up, isConditionMet = manualMode) {
+                presenter.onBookmarkOptionClick(bookmark, BrowserContract.BookmarkOptionEvent.MOVE_UP)
+            },
+            DialogItem(title = R.string.bookmark_move_down, isConditionMet = manualMode) {
+                presenter.onBookmarkOptionClick(bookmark, BrowserContract.BookmarkOptionEvent.MOVE_DOWN)
+            },
+            DialogItem(title = R.string.bookmark_move_to_top, isConditionMet = manualMode) {
+                presenter.onBookmarkOptionClick(bookmark, BrowserContract.BookmarkOptionEvent.MOVE_TO_TOP)
+            },
+            DialogItem(title = R.string.bookmark_move_to_bottom, isConditionMet = manualMode) {
+                presenter.onBookmarkOptionClick(bookmark, BrowserContract.BookmarkOptionEvent.MOVE_TO_BOTTOM)
             }
         )
     }
@@ -2716,9 +2957,12 @@ private const val BROWSER_MENU_SCREEN_MARGIN_DP = 14
 private const val KO_FI_URL = "https://ko-fi.com/kennethchoinfosec"
 private const val ADDRESS_OVERLAY_ENTER_DURATION_MS = 360L
 private const val ADDRESS_OVERLAY_EXIT_DURATION_MS = 180L
+private const val RAIL_AUTO_HIDE_DURATION_MS = 250L
 private const val ADDRESS_OVERLAY_HIDE_FALLBACK_DELAY_MS = 50L
 private const val ADDRESS_OVERLAY_SHADOW_DELAY_MS = 90L
 private const val ADDRESS_OVERLAY_SHADOW_DURATION_MS = 320L
 private const val ADDRESS_EDITOR_IME_RETRY_DELAY_MS = 120L
 private const val ADDRESS_EDITOR_IME_MAX_RETRIES = 6
 private const val TTS_CHUNK_LENGTH = 3500
+private const val CONSOLE_TAG = "browser_console"
+private const val COOKIE_MANAGER_TAG = "cookie_manager"

@@ -777,4 +777,25 @@
     <string name="filter_list_refreshed">필터 목록이 새로 고쳐졌습니다</string>
     <string name="filter_list_refresh_failed">필터 목록을 새로 고칠 수 없습니다</string>
     <string name="filter_list_refreshed_all">%1$d개 새로 고침 · %2$d개 실패</string>
+    <string name="action_console">콘솔</string>
+    <string name="console_hint">이 탭에서 JavaScript 실행…</string>
+    <string name="console_run">실행</string>
+    <string name="console_clear">콘솔 지우기</string>
+    <string name="console_close">콘솔 닫기</string>
+    <string name="console_empty">아직 메시지가 없습니다. 페이지와 상호 작용하거나 아래에서 명령을 실행하세요.</string>
+    <string name="console_unsupported_engine">이 빌드에서는 명령 평가에 WebView 코어가 필요합니다.</string>
+    <string name="console_filter_all">전체</string>
+    <string name="console_filter_errors">오류</string>
+    <string name="console_filter_warnings">경고</string>
+    <string name="console_filter_info">정보</string>
+    <string name="console_filter_verbose">상세</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

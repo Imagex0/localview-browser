@@ -17,6 +17,7 @@ import androidx.activity.result.ActivityResult
 import androidx.lifecycle.findViewTreeLifecycleOwner
 import androidx.media3.common.util.UnstableApi
 import com.krystelligence.solipsism.browser.download.PendingDownload
+import org.json.JSONObject
 import com.krystelligence.solipsism.browser.engine.AntaresContentBlockingPolicy
 import com.krystelligence.solipsism.browser.engine.AntaresCoordinateBridge
 import com.krystelligence.solipsism.browser.engine.AntaresMediaPlayerView
@@ -27,6 +28,16 @@ import com.krystelligence.solipsism.constant.SCHEME_HOMEPAGE
 import com.krystelligence.solipsism.constant.SCHEME_ANTARES_HOMEPAGE
 import com.krystelligence.solipsism.ids.ViewIdGenerator
 import com.krystelligence.solipsism.log.Logger
+import com.krystelligence.solipsism.browser.console.ConsoleEntry
+import com.krystelligence.solipsism.browser.console.ConsoleLevel
+import com.krystelligence.solipsism.browser.console.ConsoleStore
+import com.krystelligence.solipsism.browser.console.ConsoleStoreRepository
+import com.krystelligence.solipsism.browser.console.MAX_CONSOLE_COMMAND_LENGTH
+import com.krystelligence.solipsism.browser.console.MAX_CONSOLE_RESULT_LENGTH
+import com.krystelligence.solipsism.browser.console.decodeConsoleEvalResult
+import com.krystelligence.solipsism.browser.engine.BrowserCore
+import com.krystelligence.solipsism.browser.engine.toConsoleLevel
+import com.krystelligence.solipsism.browser.engine.toEngineConsoleLevel
 import com.krystelligence.solipsism.preference.UserPreferences
 import com.krystelligence.solipsism.preference.DeveloperPreferences
 import com.krystelligence.solipsism.preference.antaresUserAgent
@@ -53,6 +64,7 @@ class AntaresTabAdapter private constructor(
     private val developerPreferences: DeveloperPreferences,
     private val contentBlockingPolicy: AntaresContentBlockingPolicy,
     private val logger: Logger,
+    private val consoleStores: ConsoleStoreRepository,
 ) : TabModel, AntaresSessionView.Listener {
     private val contentKindSubject = BehaviorSubject.createDefault(
         initialUrlResolver.contentKind(tabInitializer),
@@ -66,6 +78,61 @@ class AntaresTabAdapter private constructor(
         ?.takeIf { it != -1 }
         ?.also(viewIdGenerator::claimViewId)
         ?: viewIdGenerator.generateViewId()
+
+    override val consoleStore: ConsoleStore
+        get() = consoleStores.storeFor(id, BrowserCore.ANTARES)
+
+    override val engine: BrowserCore
+        get() = BrowserCore.ANTARES
+
+    /**
+     * Command evaluation over the engine result callback: appends COMMAND
+     * immediately, RESULT/ERROR when the renderer replies.
+     */
+    override fun evaluateForConsole(code: String): Boolean {
+        val store = consoleStore
+        val pageUrl = currentUrl
+        store.append(
+            ConsoleEntry(
+                engine = BrowserCore.ANTARES,
+                tabId = id,
+                url = pageUrl,
+                level = ConsoleLevel.COMMAND,
+                message = code.take(MAX_CONSOLE_COMMAND_LENGTH),
+                source = null,
+                line = null
+            )
+        )
+        contentView.evaluateForConsole(
+            "(function(){return eval(${JSONObject.quote(code)});})()"
+        ) { resultJson ->
+            val decoded = decodeConsoleEvalResult(resultJson)
+            store.append(
+                if (decoded == null || decoded.text.isBlank()) {
+                    ConsoleEntry(
+                        engine = BrowserCore.ANTARES,
+                        tabId = id,
+                        url = pageUrl,
+                        level = ConsoleLevel.ERROR,
+                        message = "Evaluation returned an unreadable result",
+                        source = null,
+                        line = null
+                    )
+                } else {
+                    ConsoleEntry(
+                        engine = BrowserCore.ANTARES,
+                        tabId = id,
+                        url = pageUrl,
+                        level = if (decoded.ok) ConsoleLevel.RESULT else ConsoleLevel.ERROR,
+                        message = decoded.text.take(MAX_CONSOLE_RESULT_LENGTH),
+                        source = null,
+                        line = null
+                    )
+                }
+            )
+        }
+        return true
+    }
 
     private var currentUrl = initialUrlResolver.resolve(tabInitializer)
     private var currentTitle = if (contentKind == TabContentKind.NATIVE_HOMEPAGE) {
@@ -293,6 +360,7 @@ class AntaresTabAdapter private constructor(
         disposables.dispose()
         coordinateBridge?.destroy()
         viewIdGenerator.releaseViewId(id)
+        consoleStores.release(id)
         contentView.destroySession()
     }
 
@@ -344,6 +412,34 @@ class AntaresTabAdapter private constructor(
     override fun onElementProbeResult(requestId: Int, descriptor: String) {
         coordinateBridge?.onAntaresProbeResult(requestId, descriptor)
     }
+    override fun onConsoleSignal(signal: AntaresSessionView.ConsoleSignal) {
+        if (contentKind == TabContentKind.NATIVE_HOMEPAGE) return
+        consoleStore.append(
+            ConsoleEntry(
+                engine = BrowserCore.ANTARES,
+                tabId = id,
+                url = currentUrl,
+                level = signal.level.toConsoleLevel(),
+                message = signal.message,
+                source = signal.source.takeIf(String::isNotBlank),
+                line = signal.line.takeIf { it > 0 }
+            )
+        )
+    }
+    override fun onConsoleMessage(level: Int, message: String) {
+        if (contentKind == TabContentKind.NATIVE_HOMEPAGE) return
+        if (message.isBlank()) return
+        consoleStore.append(
+            ConsoleEntry(
+                engine = BrowserCore.ANTARES,
+                tabId = id,
+                url = currentUrl,
+                level = level.toEngineConsoleLevel(),                message = message.take(MAX_CONSOLE_RESULT_LENGTH),
+                source = null,
+                line = null
+            )
+        )
+    }
     override fun onEngineError(message: String) {
         logger.log(CONSOLE_TAG, message.ifBlank { "Antares Engine unavailable" })
         loadingTracker.complete()
@@ -381,6 +477,7 @@ class AntaresTabAdapter private constructor(
         private val developerPreferences: DeveloperPreferences,
         private val contentBlockingPolicy: AntaresContentBlockingPolicy,
         private val logger: Logger,
+        private val consoleStores: ConsoleStoreRepository,
     ) {
         fun create(initializer: TabInitializer, tabType: TabModel.Type): AntaresTabAdapter =
             AntaresTabAdapter(
@@ -393,6 +490,7 @@ class AntaresTabAdapter private constructor(
                 developerPreferences,
                 contentBlockingPolicy,
                 logger,
+                consoleStores,
             )
     }
 

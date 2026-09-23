@@ -778,4 +778,25 @@
     <string name="filter_list_refreshed">Filtrų sąrašas atnaujintas</string>
     <string name="filter_list_refresh_failed">Nepavyko atnaujinti filtrų sąrašo</string>
     <string name="filter_list_refreshed_all">%1$d atnaujinti · %2$d nepavyko</string>
+    <string name="action_console">Konsolė</string>
+    <string name="console_hint">Vykdykite JavaScript šioje kortelėje…</string>
+    <string name="console_run">Vykdyti</string>
+    <string name="console_clear">Išvalyti konsolę</string>
+    <string name="console_close">Uždaryti konsolę</string>
+    <string name="console_empty">Kol kas pranešimų nėra. Sąveikaukite su puslapiu arba vykdykite komandą toliau.</string>
+    <string name="console_unsupported_engine">Komandų vertinimui šioje versijoje reikalingas WebView branduolys.</string>
+    <string name="console_filter_all">Visi</string>
+    <string name="console_filter_errors">Klaidos</string>
+    <string name="console_filter_warnings">Įspėjimai</string>
+    <string name="console_filter_info">Informacija</string>
+    <string name="console_filter_verbose">Išsamu</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

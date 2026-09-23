@@ -10,6 +10,7 @@ import android.util.Log
 import android.util.Size
 import android.view.KeyEvent
 import android.view.Surface
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -35,6 +36,8 @@ class Servo(
     private val frameQueued = AtomicBoolean(false)
     private val enginePanicCount = AtomicInteger(0)
     private val rendererUnhealthy = AtomicBoolean(false)
+    private val evalCallbacks = ConcurrentHashMap<Int, (String) -> Unit>()
+    private val nextEvalRequestId = AtomicInteger(1)
 
     private fun runOnEngine(action: () -> Unit) {
         runCallback.inGLThread {
@@ -102,6 +105,20 @@ class Servo(
 
     fun evaluateJavascript(script: String) {
         runOnEngine { jni.evaluateJavascript(script) }
+    }
+
+    /**
+     * Evaluate and deliver the JSON result to [onResult] on the UI thread.
+     * Callbacks are one-shot; entries for destroyed renderers are dropped.
+     */
+    fun evaluateJavascript(script: String, onResult: (String) -> Unit) {
+        val requestId = nextEvalRequestId.getAndIncrement()
+        evalCallbacks[requestId] = onResult
+        runOnEngine { jni.evaluateJavascriptWithCallback(script, requestId) }
+    }
+
+    private fun deliverEvalResult(requestId: Int, resultJson: String) {
+        evalCallbacks.remove(requestId)?.invoke(resultJson)
     }
 
     fun setUserAgent(userAgent: String) {
@@ -244,6 +261,8 @@ class Servo(
 
         fun onHistoryChanged(canGoBack: Boolean, canGoForward: Boolean)
 
+        fun onConsoleMessage(level: Int, message: String)
+
         fun onImeShow()
 
         fun onImeHide()
@@ -263,7 +282,7 @@ class Servo(
         fun requestVsync()
     }
 
-    private class Callbacks(
+    private inner class Callbacks(
         var client: Client,
         private val jni: JNIServo,
         private val runCallback: RunCallback,
@@ -318,6 +337,14 @@ class Servo(
 
         override fun onHistoryChanged(canGoBack: Boolean, canGoForward: Boolean) {
             runCallback.inUIThread { client.onHistoryChanged(canGoBack, canGoForward) }
+        }
+
+        override fun onConsoleMessage(level: Int, message: String) {
+            runCallback.inUIThread { client.onConsoleMessage(level, message) }
+        }
+
+        override fun onEvalResult(requestId: Int, resultJson: String) {
+            runCallback.inUIThread { deliverEvalResult(requestId, resultJson) }
         }
 
         override fun onMediaSessionMetadata(title: String, artist: String, album: String) {

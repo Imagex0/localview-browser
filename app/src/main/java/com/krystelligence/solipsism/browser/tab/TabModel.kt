@@ -1,6 +1,8 @@
 package com.krystelligence.solipsism.browser.tab
 
+import com.krystelligence.solipsism.browser.console.ConsoleStore
 import com.krystelligence.solipsism.browser.download.PendingDownload
+import com.krystelligence.solipsism.browser.engine.BrowserCore
 import com.krystelligence.solipsism.ssl.SslCertificateInfo
 import com.krystelligence.solipsism.ssl.SslState
 import com.krystelligence.solipsism.utils.Option
@@ -296,6 +298,22 @@ interface TabModel {
      * Teardown the current tab and release held resources.
      */
     fun destroy()
+
+    /**
+     * Bounded log backing the in-app console panel for this tab.
+     */
+    val consoleStore: ConsoleStore
+
+    /**
+     * Which engine renders this tab (context chip + evaluation support).
+     */
+    val engine: BrowserCore
+
+    /**
+     * Runs console [code] in the page, recording COMMAND/RESULT entries.
+     * Returns false when this engine cannot evaluate with a result.
+     */
+    fun evaluateForConsole(code: String): Boolean
 
     /**
      * Freeze the current state of the tab and return it as a [Bundle].

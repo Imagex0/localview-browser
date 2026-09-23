@@ -1,7 +1,16 @@
 package com.krystelligence.solipsism.browser.tab
 
 import com.krystelligence.solipsism.R
+import com.krystelligence.solipsism.browser.console.ConsoleEntry
+import com.krystelligence.solipsism.browser.console.ConsoleLevel
+import com.krystelligence.solipsism.browser.console.ConsoleStore
+import com.krystelligence.solipsism.browser.console.ConsoleStoreRepository
+import com.krystelligence.solipsism.browser.console.buildConsoleEvalScript
+import com.krystelligence.solipsism.browser.console.decodeConsoleEvalResult
+import com.krystelligence.solipsism.browser.console.MAX_CONSOLE_COMMAND_LENGTH
+import com.krystelligence.solipsism.browser.console.MAX_CONSOLE_RESULT_LENGTH
 import com.krystelligence.solipsism.browser.di.DiskScheduler
+import com.krystelligence.solipsism.browser.engine.BrowserCore
 import com.krystelligence.solipsism.adblock.custom.ElementPickerController
 import com.krystelligence.solipsism.browser.di.MainScheduler
 import com.krystelligence.solipsism.browser.download.PendingDownload
@@ -58,7 +67,8 @@ class TabAdapter @AssistedInject constructor(
     @Assisted private val requestHeaders: Map<String, String>,
     @Assisted private val tabWebViewClient: TabWebViewClient,
     @Assisted override var tabType: TabModel.Type,
-    private val tabWebChromeClient: TabWebChromeClient,
+    private val tabWebChromeClientFactory: TabWebChromeClient.Factory,
+    private val consoleStores: ConsoleStoreRepository,
     private val userPreferences: UserPreferences,
     @DefaultUserAgent private val defaultUserAgent: String,
     @DefaultTabTitle private val defaultTabTitle: String,
@@ -125,10 +135,23 @@ class TabAdapter @AssistedInject constructor(
         viewIdGenerator.generateViewId()
     }
 
+    /**
+     * Per-tab client: console messages carry no tab identity in the Android
+     * API, so each tab attributes entries through its own instance.
+     */
+    private val tabWebChromeClient: TabWebChromeClient by lazy {
+        tabWebChromeClientFactory.create(id)
+    }
+
+    override val consoleStore: ConsoleStore
+        get() = consoleStores.storeFor(id, BrowserCore.WEBVIEW)
+
+    override val engine: BrowserCore
+        get() = BrowserCore.WEBVIEW
+
     private val webView: WebView
         get() = webViewLazy.value.apply {
             elementPickerController.attach(this)
-            webViewClient = tabWebViewClient
             webChromeClient = tabWebChromeClient
             setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
                 if (isRestrictedHomepageDownload()) {
@@ -503,6 +526,55 @@ class TabAdapter @AssistedInject constructor(
         }
     }
 
+    /**
+     * Runs console input in the page and records COMMAND/RESULT entries.
+     * Wraps evaluation so thrown errors (including their stacks) come back as
+     * data instead of dying silently. See
+     * https://developer.android.com/reference/android/webkit/WebView#evaluateJavascript(java.lang.String,%20android.webkit.ValueCallback%3Cjava.lang.String%3E)
+     */
+    override fun evaluateForConsole(code: String): Boolean {
+        val store = consoleStore
+        val pageUrl = url
+        store.append(
+            ConsoleEntry(
+                engine = BrowserCore.WEBVIEW,
+                tabId = id,
+                url = pageUrl,
+                level = ConsoleLevel.COMMAND,
+                message = code.take(MAX_CONSOLE_COMMAND_LENGTH),
+                source = null,
+                line = null
+            )
+        )
+        webView.evaluateJavascript(buildConsoleEvalScript(code)) { result ->
+            val decoded = decodeConsoleEvalResult(result)
+            store.append(
+                if (decoded == null) {
+                    ConsoleEntry(
+                        engine = BrowserCore.WEBVIEW,
+                        tabId = id,
+                        url = pageUrl,
+                        level = ConsoleLevel.ERROR,
+                        message = "Evaluation returned an unreadable result",
+                        source = null,
+                        line = null
+                    )
+                } else {
+                    ConsoleEntry(
+                        engine = BrowserCore.WEBVIEW,
+                        tabId = id,
+                        url = pageUrl,
+                        level = if (decoded.ok) ConsoleLevel.RESULT else ConsoleLevel.ERROR,
+                        message = decoded.text.take(MAX_CONSOLE_RESULT_LENGTH),
+                        source = null,
+                        line = null
+                    )
+                }
+            )
+        }
+        return true
+    }
+
     override val preview: Pair<String?, Long>
         get() = if (contentKind == TabContentKind.NATIVE_HOMEPAGE) {
             null to previewGeneratedTime
@@ -738,6 +810,7 @@ class TabAdapter @AssistedInject constructor(
     override fun destroy() {
         webView.removeCallbacks(stalledLoadCheck)
         viewIdGenerator.releaseViewId(id)
+        consoleStores.release(id)
         previewModel.prune()
         webView.stopLoading()
         webView.onPause()

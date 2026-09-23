@@ -91,6 +91,15 @@ interface BookmarkRepository {
     fun editBookmark(oldBookmark: Bookmark.Entry, newBookmark: Bookmark.Entry): Completable
 
     /**
+     * Persists a new manual order for bookmarks. The list should contain the
+     * entries in the desired order; positions are assigned from the list index.
+     *
+     * @param orderedEntries entries in the desired manual order.
+     * @return a completable that completes when positions have been updated.
+     */
+    fun updateBookmarkOrder(orderedEntries: List<Bookmark.Entry>): Completable
+
+    /**
      * Emits a list of all bookmarks, sorted by folder, position, title, and url.
      *
      * @return an observable that emits a list of all bookmarks.

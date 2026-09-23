@@ -24,11 +24,17 @@ class BookmarkViewHolder(
     }
 
     override fun onClick(v: View) {
-        onItemClickListener(bindingAdapterPosition)
+        val position = bindingAdapterPosition
+        if (position != RecyclerView.NO_POSITION) {
+            onItemClickListener(position)
+        }
     }
 
     override fun onLongClick(v: View): Boolean {
-        onItemLongClickListener(bindingAdapterPosition)
+        val position = bindingAdapterPosition
+        if (position != RecyclerView.NO_POSITION) {
+            onItemLongClickListener(position)
+        }
         return true
     }
 }

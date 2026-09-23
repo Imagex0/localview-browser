@@ -10,6 +10,11 @@ import com.krystelligence.solipsism.extensions.resizeAndShow
 import com.krystelligence.solipsism.favicon.FaviconModel
 import com.krystelligence.solipsism.haptics.HapticFeedbackController
 import com.krystelligence.solipsism.log.Logger
+import com.krystelligence.solipsism.browser.console.ConsoleEntry
+import com.krystelligence.solipsism.browser.console.ConsoleLevel
+import com.krystelligence.solipsism.browser.console.ConsoleStoreRepository
+import com.krystelligence.solipsism.browser.console.toConsoleLevel
+import com.krystelligence.solipsism.browser.engine.BrowserCore
 import com.krystelligence.solipsism.preference.UserPreferences
 import com.krystelligence.solipsism.preference.SitePermissionDecision
 import com.krystelligence.solipsism.preference.SitePermissionKey
@@ -37,15 +42,21 @@ import androidx.fragment.app.FragmentActivity
 import androidx.palette.graphics.Palette
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.permissionx.guolindev.PermissionX
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.subjects.BehaviorSubject
 import io.reactivex.rxjava3.subjects.PublishSubject
-import javax.inject.Inject
 
 /**
  * A [WebChromeClient] that supports the tab adaptation.
+ *
+ * One instance is created per tab (see [Factory]): console messages and the
+ * other callbacks carry no tab identity in the Android API, so a shared
+ * instance could not attribute entries to the right tab's store.
  */
-class TabWebChromeClient @Inject constructor(
+class TabWebChromeClient @AssistedInject constructor(
     private val activity: FragmentActivity,
     private val faviconModel: FaviconModel,
     @DiskScheduler private val diskScheduler: Scheduler,
@@ -53,7 +64,9 @@ class TabWebChromeClient @Inject constructor(
     private val webRtcPermissionsModel: WebRtcPermissionsModel,
     private val sitePermissionStore: SitePermissionStore,
     private val hapticFeedback: HapticFeedbackController,
-    private val logger: Logger
+    private val logger: Logger,
+    private val consoleStores: ConsoleStoreRepository,
+    @Assisted private val tabId: Int
 ) : WebChromeClient(), WebRtcPermissionsView {
 
     private val defaultColor = ThemeUtils.getPrimaryColor(activity)
@@ -169,10 +182,24 @@ class TabWebChromeClient @Inject constructor(
     override fun onConsoleMessage(message: ConsoleMessage): Boolean {
         // Parity with Antares engine errors: route page JS console output
         // through the app Logger so DEBUG logcat shows url + line + source.
+        // Structured twin goes to this tab's console store (the callback
+        // carries no WebView, hence the per-tab instance holding tabId).
+        // See https://developer.android.com/reference/android/webkit/WebChromeClient#onConsoleMessage(android.webkit.ConsoleMessage)
         logger.log(
             CONSOLE_TAG,
             "${message.messageLevel()}: ${message.message()} " +
                 "-- From line ${message.lineNumber()} of ${message.sourceId()}"
+        )
+        consoleStores.storeFor(tabId, BrowserCore.WEBVIEW).append(
+            ConsoleEntry(
+                engine = BrowserCore.WEBVIEW,
+                tabId = tabId,
+                url = message.sourceId().takeIf(String::isNotBlank),
+                level = message.messageLevel().toConsoleLevel(),
+                message = message.message(),
+                source = message.sourceId().takeIf(String::isNotBlank),
+                line = message.lineNumber().takeIf { it >= 0 }
+            )
         )
         return true
     }
@@ -365,5 +392,17 @@ class TabWebChromeClient @Inject constructor(
 
     companion object {
         private const val CONSOLE_TAG = "WebViewConsole"
+    }
+
+    /**
+     * The factory for constructing the per-tab client.
+     */
+    @AssistedFactory
+    interface Factory {
+
+        /**
+         * Create the client for the tab.
+         */
+        fun create(tabId: Int): TabWebChromeClient
     }
 }

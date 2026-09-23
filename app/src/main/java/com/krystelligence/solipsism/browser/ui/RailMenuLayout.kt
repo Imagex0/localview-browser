@@ -109,6 +109,7 @@ enum class RailActionId {
     SCREENSHOT,
     USER_AGENT,
     BLOCK_ELEMENT,
+    CONSOLE,
     COOKIE_MANAGER,
     SETTINGS,
     OVERFLOW

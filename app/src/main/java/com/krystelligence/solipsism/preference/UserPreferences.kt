@@ -145,6 +145,9 @@ class UserPreferences @Inject constructor(
     /** Hide the Solipsism side rail while full-screen mode is enabled. */
     var hideRailInFullscreen by preferences.booleanPreference(HIDE_RAIL_IN_FULLSCREEN, false)
 
+    /** Auto-hide the Solipsism rail on scroll-down, reveal on scroll-up. */
+    var railAutoHideOnScroll by preferences.booleanPreference(RAIL_AUTO_HIDE_ON_SCROLL, false)
+
     /**
      * True if the system status bar should be hidden throughout the app, false if it should be
      * visible.
@@ -626,6 +629,7 @@ private const val MALWARE_DEFINITIONS_AUTO_UPDATE = "malwareDefinitionsAutoUpdat
 private const val VIRUS_TOTAL_CLOUD_ENABLED = "virusTotalCloudEnabled"
 private const val FULL_SCREEN = "fullscreen"
 private const val HIDE_RAIL_IN_FULLSCREEN = "hideRailInFullscreen"
+private const val RAIL_AUTO_HIDE_ON_SCROLL = "railAutoHideOnScroll"
 private const val HIDE_STATUS_BAR = "hidestatus"
 private const val HOMEPAGE = "home"
 private const val INCOGNITO_COOKIES = "incognitocookies"

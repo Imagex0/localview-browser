@@ -52,6 +52,8 @@ internal class JNIServo {
 
     external fun evaluateJavascript(script: String)
 
+    external fun evaluateJavascriptWithCallback(script: String, requestId: Int)
+
     external fun setUserAgent(userAgent: String)
 
     external fun setTheme(darkTheme: Boolean)
@@ -118,5 +120,18 @@ internal class JNIServo {
         fun onMediaSessionPlaybackStateChange(state: Int)
 
         fun onMediaSessionSetPositionState(duration: Float, position: Float, playbackRate: Float)
+
+        /**
+         * A page script called a `console.*` API. Levels follow the engine's
+         * ConsoleLogLevel order: Log=0, Debug=1, Info=2, Warn=3, Error=4,
+         * Trace=5, Dir=6.
+         */
+        fun onConsoleMessage(level: Int, message: String)
+
+        /**
+         * An [evaluateJavascriptWithCallback] request completed. `resultJson`
+         * is `{"ok":true,"value":<JSON>}` or `{"ok":false,"error":"…"}`.
+         */
+        fun onEvalResult(requestId: Int, resultJson: String)
     }
 }

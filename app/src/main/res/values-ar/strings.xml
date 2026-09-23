@@ -780,4 +780,25 @@
     <string name="filter_list_refreshed">تم تحديث قائمة الترشيح</string>
     <string name="filter_list_refresh_failed">تعذّر تحديث قائمة الترشيح</string>
     <string name="filter_list_refreshed_all">تم تحديث %1$d · فشل %2$d</string>
+    <string name="action_console">وحدة التحكم</string>
+    <string name="console_hint">تشغيل JavaScript في علامة التبويب هذه…</string>
+    <string name="console_run">تشغيل</string>
+    <string name="console_clear">مسح وحدة التحكم</string>
+    <string name="console_close">إغلاق وحدة التحكم</string>
+    <string name="console_empty">لا توجد رسائل بعد. تفاعل مع الصفحة أو شغّل أمرًا أدناه.</string>
+    <string name="console_unsupported_engine">يتطلب تقييم الأوامر نواة WebView في هذه النسخة.</string>
+    <string name="console_filter_all">الكل</string>
+    <string name="console_filter_errors">الأخطاء</string>
+    <string name="console_filter_warnings">التحذيرات</string>
+    <string name="console_filter_info">معلومات</string>
+    <string name="console_filter_verbose">مفصّلة</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

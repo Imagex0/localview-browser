@@ -236,6 +236,10 @@ open class ServoView : SurfaceView, Servo.RunCallback, Choreographer.FrameCallba
         rendererForDisplay()?.evaluateJavascript(script)
     }
 
+    fun evaluateJavascript(script: String, onResult: (String) -> Unit) {
+        rendererForDisplay()?.evaluateJavascript(script, onResult)
+    }
+
     fun setUserAgent(value: String) {
         userAgent = value
         activeRendererForClient()?.setUserAgent(value)

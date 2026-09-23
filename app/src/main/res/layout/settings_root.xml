@@ -12,6 +12,8 @@
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
+        android:layout_marginStart="@dimen/settings_header_side_margin"
+        android:layout_marginEnd="@dimen/settings_header_side_margin"
         android:background="@drawable/settings_header_background"
         android:elevation="0dp"
         android:minHeight="?attr/actionBarSize"

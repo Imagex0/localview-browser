@@ -32,7 +32,8 @@ class WebViewScrollCoordinator @Inject constructor(
     private val toolbarRoot: LinearLayout,
     private val toolbar: View,
     private val userPreferences: UserPreferences,
-    private val inputMethodManager: InputMethodManager
+    private val inputMethodManager: InputMethodManager,
+    private val railAutoHideController: RailAutoHideController
 ) {
 
     private val gestureListener: CustomGestureListener = CustomGestureListener(
@@ -50,6 +51,12 @@ class WebViewScrollCoordinator @Inject constructor(
         webView.setCompositeOnFocusChangeListener("keyboard") { v, hasFocus ->
             if (hasFocus) {
                 inputMethodManager.hideSoftInputFromWindow(v.windowToken, 0)
+            }
+        }
+        webView.setOnScrollChangeListener { _, scrollX, scrollY, oldScrollX, oldScrollY ->
+            val dy = scrollY - oldScrollY
+            if (dy != 0) {
+                railAutoHideController.onWebViewScroll(dy, scrollY)
             }
         }
 

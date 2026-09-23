@@ -13,6 +13,7 @@ import com.krystelligence.solipsism.browser.di.injector
 import com.krystelligence.solipsism.database.bookmark.BookmarkExporter
 import com.krystelligence.solipsism.database.bookmark.BookmarkRepository
 import com.krystelligence.solipsism.database.Bookmark
+import com.krystelligence.solipsism.database.bookmark.BookmarkSortOrder
 import com.krystelligence.solipsism.dialog.BrowserDialog
 import com.krystelligence.solipsism.dialog.DialogItem
 import com.krystelligence.solipsism.extensions.fileInputStream
@@ -70,6 +71,44 @@ class BookmarkSettingsFragment : AbstractSettingsFragment() {
             preference = SETTINGS_DELETE_BOOKMARKS,
             onClick = this::deleteAllBookmarks
         )
+        bindSortOrderPreference()
+    }
+
+    private fun bindSortOrderPreference() {
+        val sortPreference = findPreference<androidx.preference.ListPreference>(SETTINGS_SORT_ORDER)
+            ?: return
+        sortPreference.value = userPreferences.bookmarkSortOrder.toPreferenceValue()
+        sortPreference.summary = sortPreference.entry
+        sortPreference.setOnPreferenceChangeListener { preference, newValue ->
+            val order = (newValue as? String).toSortOrder()
+            userPreferences.bookmarkSortOrder = order
+            val listPref = preference as? androidx.preference.ListPreference
+            // Update summary to the newly selected entry; ListPreference updates value after this callback.
+            val values = listPref?.entryValues?.map { it.toString() } ?: emptyList()
+            val index = values.indexOf(newValue as? String)
+            if (index >= 0) {
+                listPref?.summary = listPref?.entries?.getOrNull(index)
+            } else {
+                listPref?.summary = listPref?.entry
+            }
+            true
+        }
+    }
+
+    private fun BookmarkSortOrder.toPreferenceValue(): String = when (this) {
+        BookmarkSortOrder.MANUAL -> "manual"
+        BookmarkSortOrder.TITLE_ASC -> "title_asc"
+        BookmarkSortOrder.TITLE_DESC -> "title_desc"
+        BookmarkSortOrder.URL_ASC -> "url_asc"
+        BookmarkSortOrder.URL_DESC -> "url_desc"
+    }
+
+    private fun Any?.toSortOrder(): BookmarkSortOrder = when (this as? String) {
+        "title_asc" -> BookmarkSortOrder.TITLE_ASC
+        "title_desc" -> BookmarkSortOrder.TITLE_DESC
+        "url_asc" -> BookmarkSortOrder.URL_ASC
+        "url_desc" -> BookmarkSortOrder.URL_DESC
+        else -> BookmarkSortOrder.MANUAL
     }
 
     @Deprecated("Deprecated in Java")
@@ -336,6 +375,7 @@ class BookmarkSettingsFragment : AbstractSettingsFragment() {
         private const val SETTINGS_EXPORT = "export_bookmark"
         private const val SETTINGS_IMPORT = "import_bookmark"
         private const val SETTINGS_DELETE_BOOKMARKS = "delete_bookmarks"
+        private const val SETTINGS_SORT_ORDER = "bookmark_sort_order"
 
     }
 }

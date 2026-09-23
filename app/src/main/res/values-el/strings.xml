@@ -777,4 +777,25 @@
     <string name="filter_list_refreshed">Η λίστα φίλτρων ανανεώθηκε</string>
     <string name="filter_list_refresh_failed">Δεν ήταν δυνατή η ανανέωση της λίστας φίλτρων</string>
     <string name="filter_list_refreshed_all">%1$d ανανεώθηκαν · %2$d απέτυχαν</string>
+    <string name="action_console">Κονσόλα</string>
+    <string name="console_hint">Εκτέλεση JavaScript σε αυτήν την καρτέλα…</string>
+    <string name="console_run">Εκτέλεση</string>
+    <string name="console_clear">Καθαρισμός κονσόλας</string>
+    <string name="console_close">Κλείστε την κονσόλα</string>
+    <string name="console_empty">Δεν υπάρχουν μηνύματα ακόμα. Αλληλεπιδράστε με τη σελίδα ή εκτελέστε μια εντολή παρακάτω.</string>
+    <string name="console_unsupported_engine">Η αξιολόγηση εντολών απαιτεί τον πυρήνα WebView σε αυτήν την έκδοση.</string>
+    <string name="console_filter_all">Όλα</string>
+    <string name="console_filter_errors">Σφάλματα</string>
+    <string name="console_filter_warnings">Προειδοποιήσεις</string>
+    <string name="console_filter_info">Πληροφορίες</string>
+    <string name="console_filter_verbose">Αναλυτικά</string>
+    <string name="console_context">%1$s · %2$s</string>
+    <string name="bookmark_move_up">Move up</string>
+    <string name="bookmark_move_down">Move down</string>
+    <string name="bookmark_move_to_top">Move to top</string>
+    <string name="bookmark_move_to_bottom">Move to bottom</string>
+    <string name="bookmark_reorder_handle">Reorder bookmark. Drag to change manual order.</string>
+    <string name="bookmark_manual_hint">Manual order: drag the handle to reorder, or long-press a bookmark and choose Move.</string>
+    <string name="rail_auto_hide_on_scroll">Auto-hide rail on scroll</string>
+    <string name="rail_auto_hide_on_scroll_summary">Hide the rail when scrolling down, show it again when scrolling up. Scroll to the top to always reveal it.</string>
 </resources>

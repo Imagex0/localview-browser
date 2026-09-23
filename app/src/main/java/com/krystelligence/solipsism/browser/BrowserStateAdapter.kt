@@ -169,6 +169,10 @@ class BrowserStateAdapter(private val browserActivity: BrowserActivity) : Browse
         browserActivity.showCookieManager(url)
     }
 
+    override fun showConsole(tabId: Int) {
+        browserActivity.showConsole(tabId)
+    }
+
     override fun showScreenshot(bitmap: android.graphics.Bitmap) {
         browserActivity.showScreenshot(bitmap)
     }
