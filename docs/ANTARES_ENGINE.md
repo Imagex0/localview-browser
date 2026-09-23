@@ -64,10 +64,17 @@ Build Solipsism normally:
 ./gradlew assembleSolipsismBrowserDebug
 ```
 
-Build the x86-64 Antares APK for the Android emulator from the Antares repository:
+Build the x86-64 Antares APK for the Android emulator from the Antares repository
+(`https://github.com/Kenneth-Cho-InfoSec/Antares`, tag matching the bundled engine version).
+The `libservoshell.so` bundled in Solipsism is the output of this build; `libc++_shared.so`
+is the NDK C++ runtime the Rust toolchain links automatically (per-ABI copy under
+`toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/`). Servo currently requires NDK r29,
+and the APK packaging step needs a JDK plus the Android SDK:
 
 ```bash
-export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358"
+export JAVA_HOME="$HOME/.cache/solipsism-android/jdk21"  # or any JDK 21
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+export ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/29.0.14033849"
 ./mach build --locked --target x86_64-linux-android --dev
 ```
 
@@ -80,3 +87,8 @@ Solipsism and Antares use separate source builds. Solipsism never downloads or e
 binary itself. Users download Antares from the
 [Antares GitHub releases](https://github.com/Kenneth-Cho-InfoSec/Antares/releases), which keeps
 installation, update, signature, and removal behaviour explicit and verifiable.
+
+The F-Droid parcel of Solipsism `scandelete`s both prebuilt libraries
+(`app/src/main/jniLibs/arm64-v8a/libservoshell.so` and `libc++_shared.so`) and ships
+WebView-only; the engine is picked up separately as the signed Antares companion package
+when installed.
