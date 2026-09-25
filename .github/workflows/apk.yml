@@ -1,0 +1,35 @@
+name: APK — LocalView debug artifact
+
+# Companion to upstream's `Build` workflow: same build, but uploads the
+# installable debug APK so every push to main yields a downloadable app.
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: 17
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+      # ubuntu-latest ships the SDK; ensure the API level this project targets.
+      - name: Ensure SDK packages
+        run: |
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - name: Assemble debug APK
+        run: ./gradlew :app:assembleSolipsismBrowserDebug --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: localview-debug-apk
+          path: app/build/outputs/apk/solipsismBrowser/debug/*.apk
